@@ -6,7 +6,8 @@ The optional browser client uses the Python API to avoid browser CORS limits.
 See the [repository README](../README.md) for setup and builds.
 
 - `lib/library/`: local UI library, navigation, novel details, and source browsing.
-- `lib/theme.dart`: light, dark, and monochrome e-reader themes.
+- `lib/theme.dart`: app theme built from the design tokens.
+- `lib/ui/`: design tokens and shared components (Apple HIG based).
 - `DESIGN.md`: Mihon and KOReader design references and reader architecture.
 - `lib/reader/`: EPUB parsing, typesetting/pagination, and the reader UI.
 - `lib/library/reading.dart`: keeping, importing, and opening books.

@@ -62,3 +62,26 @@ themselves, and chapters load one at a time with a pause between pages. AO3
 and Standard Ebooks provide their own EPUB files, which Moonleaf downloads
 unchanged.
 
+## Design system
+
+The interface follows Apple's Human Interface Guidelines on every platform,
+with Apple Books as the reference for the reader.
+
+- `lib/ui/tokens.dart`: Apple's text styles (Large Title 34 to Caption 11)
+  in DM Sans, semantic colors for light, dark and both e-ink modes with
+  Moonleaf green as the only accent, spacing (16 pt side margins below 375
+  pt wide, 20 pt otherwise), corner radii and 44 pt minimum hit targets.
+- `lib/ui/components.dart`: grouped sections and rows, iOS-style switches,
+  the translucent glass bar (opaque on e-ink and with Increase Contrast),
+  sheets with a grabber, alerts and the capsule button.
+- Navigation: five tabs (Library, Updates, Reading, Settings, Search) on a
+  translucent tab bar, a sidebar on wide screens, large titles that shrink
+  on scroll, and long-press action sheets for books.
+- Reader: translucent menus that take the page color, a Themes & Settings
+  sheet with Customize for every option, an edit menu beside the
+  selection, and one sheet open at a time.
+- Accessibility: layouts are tested at 320, 360 and 390 pt wide and up to
+  2x text. Bars cap their text growth, the library switches to a list at
+  very large sizes, Reduce Motion removes transitions, and reader pages
+  expose their text to screen readers.
+
