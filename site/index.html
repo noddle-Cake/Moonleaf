@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Moonleaf: Free Web Novel Reader &amp; EPUB Maker for Android</title>
+  <meta name="description" content="Moonleaf is a free Android app that saves web novels from Royal Road and RoliaScan as EPUB files and reads them in a built-in, KOReader-style reader with themes, highlights, and offline reading.">
+  <link rel="canonical" href="https://moonleaf.cjservin.com/">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+  <meta name="theme-color" content="#193e36">
+  <meta name="application-name" content="Moonleaf">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Moonleaf">
+  <meta property="og:title" content="Moonleaf: Free Web Novel Reader &amp; EPUB Maker for Android">
+  <meta property="og:description" content="Save web novels as EPUB on your phone and read them in a deep, KOReader-style reader. Free APK for Android.">
+  <meta property="og:url" content="https://moonleaf.cjservin.com/">
+  <meta property="og:image" content="https://moonleaf.cjservin.com/assets/img/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="The Moonleaf app showing a book page with highlighted text in light and dark reading themes.">
+  <meta property="og:locale" content="en_US">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Moonleaf: Free Web Novel Reader &amp; EPUB Maker for Android">
+  <meta name="twitter:description" content="Save web novels as EPUB and read them in a KOReader-style reader. Free for Android.">
+  <meta name="twitter:image" content="https://moonleaf.cjservin.com/assets/img/og.png">
+
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  <link rel="icon" href="/assets/img/icon-192.png" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <link rel="alternate" type="text/plain" title="Summary for AI assistants" href="/llms.txt">
+  <link rel="preload" href="/assets/fonts/fraunces.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/dmsans.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/styles.css">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://moonleaf.cjservin.com/#website",
+        "url": "https://moonleaf.cjservin.com/",
+        "name": "Moonleaf",
+        "description": "Free Android app for saving web novels as EPUB and reading them in a built-in reader.",
+        "inLanguage": "en"
+      },
+      {
+        "@type": "MobileApplication",
+        "@id": "https://moonleaf.cjservin.com/#app",
+        "name": "Moonleaf",
+        "alternateName": "Moonleaf web novel reader",
+        "url": "https://moonleaf.cjservin.com/",
+        "description": "Moonleaf saves web novels from Royal Road and RoliaScan as EPUB files on your phone and reads them, or any EPUB you already have, in a built-in reader inspired by KOReader.",
+        "operatingSystem": "Android 7.0 or later",
+        "applicationCategory": "EntertainmentApplication",
+        "applicationSubCategory": "E-book reader",
+        "downloadUrl": "https://github.com/noddle-Cake/Moonleaf/releases/latest/download/chapter-and-verse.apk",
+        "installUrl": "https://moonleaf.cjservin.com/download/",
+        "fileSize": "160 MB",
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "image": "https://moonleaf.cjservin.com/assets/img/icon-512.png",
+        "screenshot": [
+          "https://moonleaf.cjservin.com/assets/screens/reader-paper-highlight.webp",
+          "https://moonleaf.cjservin.com/assets/screens/reader-night-typeset.webp",
+          "https://moonleaf.cjservin.com/assets/screens/reader-sepia-menu.webp",
+          "https://moonleaf.cjservin.com/assets/screens/reader-eink-contents.webp"
+        ],
+        "featureList": [
+          "Save web novels from Royal Road and RoliaScan as EPUB files on the device",
+          "Built-in EPUB reader with page and continuous scrolling views",
+          "Font, size, weight, spacing, margin, indent and justification controls",
+          "Paper, Sepia, Sage, Dusk, Night and E-ink page colors",
+          "Bookmarks, highlights with notes, full-text search and footnote previews",
+          "Reading statistics and time-left estimates",
+          "Import any EPUB file from the phone",
+          "Library with shelves, cover grid and reading progress",
+          "No account; the library stays on the device"
+        ],
+        "codeRepository": "https://github.com/noddle-Cake/Moonleaf",
+        "inLanguage": "en"
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "https://moonleaf.cjservin.com/#faq",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What is Moonleaf?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Moonleaf is a free Android app for reading web novels. It saves chapters from supported sites as an EPUB file on your phone and opens them in a built-in reader with KOReader-style typesetting, page colors, bookmarks, highlights and reading statistics. It can also open EPUB files you already have." }
+          },
+          {
+            "@type": "Question",
+            "name": "Is Moonleaf free?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Yes. Moonleaf is free, has no ads, and needs no account. The source code is on GitHub." }
+          },
+          {
+            "@type": "Question",
+            "name": "Which websites does Moonleaf support?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Moonleaf currently supports text novels on Royal Road and RoliaScan. Paste a novel's page address and Moonleaf follows the chapters in order. Image-only manga is not supported." }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I install the Moonleaf APK on Android?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Download the APK from moonleaf.cjservin.com/download, open the downloaded file, allow your browser to install apps when Android asks, then tap Install. Moonleaf needs Android 7.0 or later." }
+          },
+          {
+            "@type": "Question",
+            "name": "Is Moonleaf on Google Play?",
+            "acceptedAnswer": { "@type": "Answer", "text": "No. Moonleaf is distributed as an APK file published on GitHub with a SHA-256 checksum. Each update is a new APK download." }
+          },
+          {
+            "@type": "Question",
+            "name": "Can Moonleaf open EPUB files I already have?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Yes. Choose Open an EPUB file from the library toolbar, Browse or More. The book is added to your library and opens in the reader." }
+          },
+          {
+            "@type": "Question",
+            "name": "Does Moonleaf work offline?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Reading works offline. An internet connection is needed only to fetch chapters from a website, and for optional dictionary, Wikipedia or translation look-ups, which open in your browser." }
+          },
+          {
+            "@type": "Question",
+            "name": "Is Moonleaf related to KOReader or Mihon?",
+            "acceptedAnswer": { "@type": "Answer", "text": "No. Moonleaf is an independent app. Its reader is inspired by KOReader and its library by Mihon, but it does not include code from either project and is not affiliated with them." }
+          },
+          {
+            "@type": "Question",
+            "name": "Does Moonleaf collect my data?",
+            "acceptedAnswer": { "@type": "Answer", "text": "No. Moonleaf has no accounts, analytics or ads. Your library, reading positions, highlights and statistics are stored only on your phone." }
+          },
+          {
+            "@type": "Question",
+            "name": "Is there an iPhone version?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Not as a download yet. Moonleaf is built with Flutter and runs on iOS, macOS, Windows and Linux when built from the source code, but only the Android APK is published." }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to main content</a>
+
+  <header class="site-header">
+    <div class="wrap header-row">
+      <a class="brand" href="/"><img src="/assets/img/icon-96.png" alt="" width="34" height="34"><span>Moonleaf</span></a>
+      <nav class="main-nav" aria-label="Main">
+        <a href="/#how">How it works</a>
+        <a href="/#reader">Reader</a>
+        <a href="/#faq">FAQ</a>
+      </nav>
+      <a class="btn btn-primary btn-small" href="/download/">Download</a>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <div>
+          <p class="eyebrow">Free for Android · No account</p>
+          <h1>Your web novels, saved and read in one app.</h1>
+          <p class="lede">Moonleaf turns web novels into EPUB books on your phone, then lets you read them in a calm, deeply adjustable reader inspired by KOReader. Your library and progress stay on your device.</p>
+          <div class="actions">
+            <a class="btn btn-primary" href="https://github.com/noddle-Cake/Moonleaf/releases/latest/download/chapter-and-verse.apk" data-download>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 20h14v-2H5v2zm7-18-1.4 1.4L11 15.2l-4.6-4.6L5 12l7 7 7-7-1.4-1.4-4.6 4.6V2z"/></svg>
+              Download the APK
+            </a>
+            <a class="btn btn-ghost" href="/download/">How to install</a>
+          </div>
+          <p class="meta">Android 7.0 or later · about 160 MB · Royal Road and RoliaScan · reads any EPUB</p>
+        </div>
+        <div class="hero-phones" aria-hidden="true">
+          <div class="phone back"><img src="/assets/screens/reader-dusk.webp" alt="" width="780" height="1688" fetchpriority="high"></div>
+          <div class="phone front"><img src="/assets/screens/reader-paper-highlight.webp" alt="" width="780" height="1688" fetchpriority="high"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="band band-surface" id="how" aria-labelledby="how-heading">
+      <div class="wrap">
+        <header class="section-head">
+          <p class="eyebrow">How it works</p>
+          <h2 id="how-heading">From a novel’s page to a finished book.</h2>
+          <p>Moonleaf does the fetching and formatting on your phone. You don’t need a computer, a server, or an account.</p>
+        </header>
+        <ol class="steps">
+          <li>
+            <h3>Add a novel</h3>
+            <p>Paste the address of a novel on Royal Road or RoliaScan. Moonleaf reads the title, author, cover and synopsis and puts it on your shelf.</p>
+          </li>
+          <li>
+            <h3>Create the EPUB</h3>
+            <p>Moonleaf follows the chapters in order and packages them into a clean EPUB 3 book, keeping italics, scene breaks and chapter titles.</p>
+          </li>
+          <li>
+            <h3>Read, or take it anywhere</h3>
+            <p>Tap <strong>Read now</strong> to open it in the built-in reader, or save the EPUB file for another e-reader. <strong>Update EPUB</strong> collects new chapters later.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="band" id="reader" aria-labelledby="reader-heading">
+      <div class="wrap">
+        <header class="section-head">
+          <p class="eyebrow">The reader</p>
+          <h2 id="reader-heading">A reader with real depth, made for long sessions.</h2>
+          <p>Moonleaf’s reader follows KOReader’s approach: tap the sides to turn pages, the top for the menu, and the bottom for typesetting. Every setting changes the page live.</p>
+        </header>
+        <div class="gallery">
+          <figure>
+            <div class="phone"><img src="/assets/screens/reader-night-typeset.webp" alt="Moonleaf typesetting panel with font choices, font size and font weight controls over a page in the Night theme." width="780" height="1688" loading="lazy"></div>
+            <figcaption><strong>Typeset it your way</strong>Font, size, weight, line and letter spacing, indents, margins and justification.</figcaption>
+          </figure>
+          <figure>
+            <div class="phone"><img src="/assets/screens/reader-sepia-menu.webp" alt="Reader menu in the Sepia theme with a progress slider and buttons for contents, notes, typeset, theme and stats." width="780" height="1688" loading="lazy"></div>
+            <figcaption><strong>Everything one tap away</strong>Skim the whole book, jump chapters, search, bookmark and check your stats.</figcaption>
+          </figure>
+          <figure>
+            <div class="phone"><img src="/assets/screens/reader-eink-contents.webp" alt="Table of contents in the black-and-white E-ink theme with page numbers for each chapter." width="780" height="1688" loading="lazy"></div>
+            <figcaption><strong>E-ink friendly</strong>Pure black-and-white themes with instant page turns for e-paper phones.</figcaption>
+          </figure>
+          <figure>
+            <div class="phone"><img src="/assets/screens/reader-paper-highlight.webp" alt="A highlighted passage and a selection toolbar offering Highlight, Note, Copy and Dictionary." width="780" height="1688" loading="lazy"></div>
+            <figcaption><strong>Highlights and notes</strong>Long-press, drag to select, then highlight, annotate, copy or look it up.</figcaption>
+          </figure>
+        </div>
+
+        <div class="features">
+          <div class="feature">
+            <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21 5c-1.1-.35-2.3-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1zm0 13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V8c1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5v11.5z"/></svg></div>
+            <h3>Pages or scrolling</h3>
+            <p>Turn pages with taps, swipes or a keyboard, or switch to continuous scrolling. Pinch to resize text.</p>
+          </div>
+          <div class="feature">
+            <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3a9 9 0 0 0 0 18c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3 4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg></div>
+            <h3>Seven page colors</h3>
+            <p>Paper, Sepia, Sage, Dusk, Night, E-ink and E-ink dark, or follow the app’s light, dark or e-reader appearance.</p>
+          </div>
+          <div class="feature">
+            <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 9h14V7H3v2zm0 4h14v-2H3v2zm0 4h14v-2H3v2zm16 0h2v-2h-2v2zm0-10v2h2V7h-2zm0 6h2v-2h-2v2z"/></svg></div>
+            <h3>A status bar you control</h3>
+            <p>Show page numbers, pages and time left in the chapter or book, progress, the chapter title and a clock.</p>
+          </div>
+          <div class="feature">
+            <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg></div>
+            <h3>Find anything</h3>
+            <p>Full-text search across the book, a skim slider, go to page or percent, and a quick way back after every jump.</p>
+          </div>
+          <div class="feature">
+            <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></div>
+            <h3>Bookmarks and footnotes</h3>
+            <p>Dog-eared bookmarks, contents with page numbers, and footnotes that preview in place instead of losing your page.</p>
+          </div>
+          <div class="feature">
+            <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z"/></svg></div>
+            <h3>Reading statistics</h3>
+            <p>Time read, words per minute, a 14-day history, and time-left estimates based on your own pace.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="band band-surface" id="library" aria-labelledby="library-heading">
+      <div class="wrap split">
+        <div>
+          <p class="eyebrow">The library</p>
+          <h2 id="library-heading">A home for every story you follow.</h2>
+          <p>Moonleaf’s library takes its cues from Mihon: covers in a grid or a compact list, shelves for <em>Plan to read</em>, <em>Reading</em> and <em>Completed</em>, search, and a history of what you opened last.</p>
+          <ul>
+            <li>Progress bars on every cover, and <strong>Continue reading</strong> right where you stopped.</li>
+            <li><strong>Open an EPUB file</strong> to add books you already own.</li>
+            <li>Light, dark and e-reader appearances for the whole app.</li>
+            <li>Export any book as a standard EPUB 3 file whenever you like.</li>
+          </ul>
+          <a class="btn btn-ink" href="/download/">Get Moonleaf for Android</a>
+        </div>
+        <div class="phone"><img src="/assets/screens/reader-sepia-menu.webp" alt="Moonleaf reading a chapter with the reader menu open in the Sepia theme." width="780" height="1688" loading="lazy"></div>
+      </div>
+    </section>
+
+    <section class="band privacy" aria-labelledby="privacy-heading">
+      <div class="wrap">
+        <header class="section-head">
+          <p class="eyebrow" style="color:var(--lav)">Private by design</p>
+          <h2 id="privacy-heading">Your library stays on your phone.</h2>
+          <p>Moonleaf has no accounts and no cloud. The app talks only to the novel sites you choose.</p>
+        </header>
+        <ul class="checks">
+          <li>No sign-up, no ads, no analytics or tracking.</li>
+          <li>Books, progress, highlights and statistics are stored on the device.</li>
+          <li>Chapters are fetched directly from the source website.</li>
+          <li>Look-ups open in your own browser, only when you ask.</li>
+        </ul>
+        <p style="margin-top:28px"><a href="/privacy/">Read the privacy policy</a></p>
+      </div>
+    </section>
+
+    <section class="band" id="faq" aria-labelledby="faq-heading">
+      <div class="wrap">
+        <header class="section-head">
+          <p class="eyebrow">Questions</p>
+          <h2 id="faq-heading">Frequently asked questions</h2>
+        </header>
+        <div class="faq">
+          <details open>
+            <summary>What is Moonleaf?</summary>
+            <div><p>Moonleaf is a free Android app for reading web novels. It saves chapters from supported sites as an EPUB file on your phone and opens them in a built-in reader with KOReader-style typesetting, page colors, bookmarks, highlights and reading statistics. It can also open EPUB files you already have.</p></div>
+          </details>
+          <details>
+            <summary>Is Moonleaf free?</summary>
+            <div><p>Yes. Moonleaf is free, has no ads, and needs no account. The <a href="https://github.com/noddle-Cake/Moonleaf">source code is on GitHub</a>.</p></div>
+          </details>
+          <details>
+            <summary>Which websites does Moonleaf support?</summary>
+            <div><p>Moonleaf currently supports text novels on <strong>Royal Road</strong> and <strong>RoliaScan</strong>. Paste a novel’s page address and Moonleaf follows the chapters in order. Image-only manga is not supported.</p></div>
+          </details>
+          <details>
+            <summary>How do I install the Moonleaf APK on Android?</summary>
+            <div><p>Download the APK from the <a href="/download/">download page</a>, open the downloaded file, allow your browser to install apps when Android asks, then tap <strong>Install</strong>. Moonleaf needs Android 7.0 or later.</p></div>
+          </details>
+          <details>
+            <summary>Is Moonleaf on Google Play?</summary>
+            <div><p>No. Moonleaf is distributed as an APK file published on GitHub with a SHA-256 checksum. Each update is a new APK download.</p></div>
+          </details>
+          <details>
+            <summary>Can Moonleaf open EPUB files I already have?</summary>
+            <div><p>Yes. Choose <strong>Open an EPUB file</strong> from the library toolbar, Browse or More. The book is added to your library and opens in the reader.</p></div>
+          </details>
+          <details>
+            <summary>Does Moonleaf work offline?</summary>
+            <div><p>Reading works offline. An internet connection is needed only to fetch chapters from a website, and for optional dictionary, Wikipedia or translation look-ups, which open in your browser.</p></div>
+          </details>
+          <details>
+            <summary>Is Moonleaf related to KOReader or Mihon?</summary>
+            <div><p>No. Moonleaf is an independent app. Its reader is inspired by <a href="https://github.com/koreader/koreader">KOReader</a> and its library by <a href="https://github.com/mihonapp/mihon">Mihon</a>, but it does not include code from either project and is not affiliated with them.</p></div>
+          </details>
+          <details>
+            <summary>Does Moonleaf collect my data?</summary>
+            <div><p>No. Moonleaf has no accounts, analytics or ads. Your library, reading positions, highlights and statistics are stored only on your phone. See the <a href="/privacy/">privacy policy</a>.</p></div>
+          </details>
+          <details>
+            <summary>Is there an iPhone version?</summary>
+            <div><p>Not as a download yet. Moonleaf is built with Flutter and runs on iOS, macOS, Windows and Linux when built from the source code, but only the Android APK is published.</p></div>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="band band-surface cta" aria-labelledby="cta-heading">
+      <div class="wrap">
+        <h2 id="cta-heading">Start your next long read.</h2>
+        <p>Free for Android 7.0 and later. No account needed.</p>
+        <div class="actions">
+          <a class="btn btn-ink" href="https://github.com/noddle-Cake/Moonleaf/releases/latest/download/chapter-and-verse.apk" data-download>Download the APK</a>
+          <a class="btn btn-ghost" href="/download/">Installation guide</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <div class="footer-grid">
+        <strong>Moonleaf</strong>
+        <nav aria-label="Footer">
+          <a href="/download/">Download</a>
+          <a href="/privacy/">Privacy</a>
+          <a href="https://github.com/noddle-Cake/Moonleaf">Source code</a>
+          <a href="https://github.com/noddle-Cake/Moonleaf/releases">Releases and checksums</a>
+        </nav>
+      </div>
+      <p>Moonleaf saves chapters for personal, offline reading. Please support authors on the sites where they publish. Moonleaf is not affiliated with Royal Road, RoliaScan, KOReader or Mihon.</p>
+    </div>
+  </footer>
+</body>
+</html>
