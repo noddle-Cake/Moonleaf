@@ -1010,7 +1010,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                           );
                         }
                       },
-                      icon: const Icon(Icons.keyboard_arrow_up),
+                      icon: const Icon(CupertinoIcons.chevron_up),
                       label: const Text('Previous chapter'),
                       style: TextButton.styleFrom(
                         foregroundColor: palette.muted,
@@ -1031,7 +1031,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                     )
                   : FilledButton.tonalIcon(
                       onPressed: () => _goTo(_chapter + 1, 0, remember: false),
-                      icon: const Icon(Icons.keyboard_arrow_down),
+                      icon: const Icon(CupertinoIcons.chevron_down),
                       label: Text(
                         'Next: ${doc.chapterTitle(_chapter + 1, 0)}',
                         maxLines: 1,
@@ -1072,7 +1072,9 @@ class _ReaderScreenState extends State<ReaderScreen>
   @override
   Widget build(BuildContext context) {
     if (_settings == null || _state == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        body: Center(child: CupertinoActivityIndicator(radius: 14)),
+      );
     }
     final pal = palette;
     final readerTheme = _readerTheme(pal);
@@ -1211,15 +1213,7 @@ class _ReaderScreenState extends State<ReaderScreen>
         Positioned.fromRect(
           rect: _content,
           child: l == null
-              ? Center(
-                  child: SizedBox.square(
-                    dimension: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: pal.muted,
-                    ),
-                  ),
-                )
+              ? Center(child: CupertinoActivityIndicator(color: pal.muted))
               : _scrollMode
               ? _scrollView(l)
               // Taps reach the reader's gesture layer; screen readers still
@@ -1300,7 +1294,7 @@ class _ReaderScreenState extends State<ReaderScreen>
             bottom: pad.bottom + footerH + 8,
             child: Center(
               child: InputChip(
-                avatar: const Icon(Icons.undo, size: 18),
+                avatar: const Icon(CupertinoIcons.arrow_uturn_left, size: 18),
                 label: const Text('Back to where you were'),
                 onPressed: () {
                   final back = _returnTo!;

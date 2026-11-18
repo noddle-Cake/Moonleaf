@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -205,7 +206,7 @@ class _Check extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ListTile(
-            leading: const Icon(Icons.verified_user_outlined),
+            leading: const Icon(CupertinoIcons.checkmark_shield),
             title: Text('Quick check from $host'),
             subtitle: const Text(
               'The site asks visitors to confirm they’re human. Complete the '
@@ -213,7 +214,7 @@ class _Check extends StatelessWidget {
             ),
             trailing: IconButton(
               tooltip: 'Stop downloading',
-              icon: const Icon(Icons.close),
+              icon: const Icon(CupertinoIcons.xmark),
               onPressed: onClose,
             ),
           ),

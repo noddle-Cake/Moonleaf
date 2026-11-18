@@ -288,7 +288,7 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
             ),
             const SizedBox(height: 16),
             ActionChip(
-              avatar: const Icon(Icons.collections_bookmark_outlined, size: 18),
+              avatar: const Icon(CupertinoIcons.collections, size: 18),
               label: Text(novel.shelf),
               onPressed: () => _shelf(novel),
             ),
@@ -343,7 +343,7 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
                 final message = Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.download_outlined, color: colors.primary),
+                    Icon(CupertinoIcons.cloud_download, color: colors.primary),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -461,7 +461,7 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
                 const SliverToBoxAdapter(
                   child: Padding(
                     padding: EdgeInsets.all(32),
-                    child: Center(child: CircularProgressIndicator()),
+                    child: Center(child: CupertinoActivityIndicator()),
                   ),
                 ),
               if (hasBook && loaded && chapters.isEmpty)
@@ -539,7 +539,10 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
     if (status.phase == DownloadPhase.failed) {
       return Card(
         child: ListTile(
-          leading: Icon(Icons.error_outline, color: colors.error),
+          leading: Icon(
+            CupertinoIcons.exclamationmark_circle,
+            color: colors.error,
+          ),
           title: const Text('Download stopped'),
           subtitle: Text(status.error ?? 'Something went wrong.'),
           trailing: TextButton(

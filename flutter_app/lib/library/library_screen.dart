@@ -540,12 +540,9 @@ class _DownloadBadge extends StatelessWidget {
                 size: 16,
                 color: Colors.white,
               )
-            : const SizedBox.square(
-                dimension: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
+            : const CupertinoActivityIndicator(
+                radius: 8,
+                color: Colors.white,
               ),
       ),
     );
