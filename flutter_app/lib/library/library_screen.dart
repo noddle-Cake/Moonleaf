@@ -6,6 +6,7 @@ import 'add_novel_dialog.dart';
 import 'library_store.dart';
 import 'novel_cover.dart';
 import 'novel_detail_screen.dart';
+import 'downloads.dart';
 import 'reading.dart';
 
 const appearanceLabels = {
@@ -17,9 +18,18 @@ const appearanceLabels = {
 };
 
 class LibraryScreen extends StatefulWidget {
-  const LibraryScreen({super.key, required this.store, required this.service});
+  const LibraryScreen({
+    super.key,
+    required this.store,
+    required this.service,
+    this.downloads,
+  });
   final LibraryStore store;
   final NovelService service;
+
+  /// Downloads added novels in the background. Without it, novels are only
+  /// saved and books are made from the export tool.
+  final DownloadManager? downloads;
   @override
   State<LibraryScreen> createState() => _LibraryScreenState();
 }
@@ -64,18 +74,23 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _add() async {
-    final added = await showDialog<bool>(
+    final added = await showDialog<String>(
       context: context,
       barrierDismissible: false,
       builder: (_) => AddNovelDialog(store: store, service: widget.service),
     );
-    if (added == true && mounted) {
-      setState(() {
-        _destination = 0;
-        _shelf = 'All';
-        _search.clear();
-      });
-    }
+    if (added == null || !mounted) return;
+    setState(() {
+      _destination = 0;
+      _shelf = 'All';
+      _search.clear();
+    });
+    final novel = store.find(added);
+    if (novel == null) return;
+    // Adding a link means you want to read it: start downloading right away
+    // and show the book's page while chapters arrive.
+    if (novel.epub == null) widget.downloads?.enqueue(novel.url);
+    await _open(novel);
   }
 
   void _export([LibraryNovel? novel]) {
@@ -102,7 +117,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           url: novel.url,
           store: store,
           onExport: _export,
-          onRead: (n) => readNovel(context, store, n),
+          downloads: widget.downloads,
         ),
       ),
     );
@@ -198,7 +213,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: store,
+    listenable: Listenable.merge([store, ?widget.downloads]),
     builder: (context, _) => LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= 840;
@@ -430,7 +445,19 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           key: ValueKey(novels[i].url),
                           borderRadius: BorderRadius.circular(8),
                           onTap: () => _open(novels[i]),
-                          child: NovelCover(novel: novels[i], overlay: true),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              NovelCover(novel: novels[i], overlay: true),
+                              if (widget.downloads?.statusOf(novels[i].url)
+                                  case final status?)
+                                Positioned(
+                                  top: 8,
+                                  right: 8,
+                                  child: _DownloadBadge(status),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     );
@@ -769,4 +796,36 @@ class _LibraryScreenState extends State<LibraryScreen> {
       ),
     ),
   );
+}
+
+class _DownloadBadge extends StatelessWidget {
+  const _DownloadBadge(this.status);
+  final DownloadStatus status;
+  @override
+  Widget build(BuildContext context) {
+    final failed = status.phase == DownloadPhase.failed;
+    return Tooltip(
+      message: failed
+          ? 'Download stopped'
+          : status.phase == DownloadPhase.queued
+          ? 'Waiting to download'
+          : 'Downloading · ${status.chapters} chapters',
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: .65),
+          shape: BoxShape.circle,
+        ),
+        child: failed
+            ? const Icon(Icons.error_outline, size: 16, color: Colors.white)
+            : const SizedBox.square(
+                dimension: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              ),
+      ),
+    );
+  }
 }

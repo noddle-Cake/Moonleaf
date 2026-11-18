@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../reader/epub_document.dart';
+import '../reader/reader_settings.dart';
+import 'downloads.dart';
 import 'library_store.dart';
 import 'novel_cover.dart';
 import 'reading.dart';
@@ -24,19 +27,75 @@ Future<void> openSource(BuildContext context, String url) async {
   }
 }
 
-class NovelDetailScreen extends StatelessWidget {
+typedef OpenBook = Future<void> Function(
+  LibraryNovel novel, {
+  int? chapter,
+  int? offset,
+});
+
+/// A novel's page, laid out like Mihon's: details and actions, then the
+/// chapter list with what you have read.
+class NovelDetailScreen extends StatefulWidget {
   const NovelDetailScreen({
     super.key,
     required this.url,
     required this.store,
     required this.onExport,
-    required this.onRead,
+    this.downloads,
+    this.onRead,
+    this.chapters,
   });
   final String url;
   final LibraryStore store;
+
+  /// Opens the export tool to customize the EPUB (title, cover, chapter).
   final void Function(LibraryNovel) onExport;
-  final void Function(LibraryNovel) onRead;
-  Future<void> _shelf(BuildContext context, LibraryNovel novel) async {
+  final DownloadManager? downloads;
+
+  /// Overrides opening the reader, for tests.
+  final OpenBook? onRead;
+
+  /// Overrides reading the chapter list from the kept EPUB, for tests.
+  final Future<List<TocEntry>> Function(LibraryNovel)? chapters;
+  @override
+  State<NovelDetailScreen> createState() => _NovelDetailScreenState();
+}
+
+class _NovelDetailScreenState extends State<NovelDetailScreen> {
+  LibraryStore get store => widget.store;
+  String get url => widget.url;
+  BookState? _state;
+  Future<List<TocEntry>>? _chapters;
+  LibraryNovel? _chaptersFor;
+  bool _newestFirst = true;
+  bool _fullSynopsis = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadState();
+  }
+
+  Future<void> _loadState() async {
+    final state = await BookState.load(url);
+    if (mounted) setState(() => _state = state);
+  }
+
+  Future<void> _read(LibraryNovel novel, {int? chapter, int? offset}) async {
+    final open = widget.onRead;
+    if (open != null) {
+      await open(novel, chapter: chapter, offset: offset);
+    } else {
+      await readNovel(context, store, novel, chapter: chapter, offset: offset);
+    }
+    await _loadState();
+  }
+
+  void _say(String message) => ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(message)));
+
+  Future<void> _shelf(LibraryNovel novel) async {
     final shelf = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -69,15 +128,11 @@ class NovelDetailScreen extends StatelessWidget {
     try {
       await store.setShelf(url, shelf);
     } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not save the shelf change.')),
-        );
-      }
+      if (mounted) _say('Could not save the shelf change.');
     }
   }
 
-  Future<void> _remove(BuildContext context) async {
+  Future<void> _remove() async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -100,236 +155,398 @@ class NovelDetailScreen extends StatelessWidget {
     if (confirm != true) return;
     try {
       final novel = store.find(url);
+      await widget.downloads?.cancel(url);
       await store.remove(url);
       if (novel != null) await forgetBook(novel);
-      if (context.mounted) Navigator.pop(context);
+      if (mounted) Navigator.pop(context);
     } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not remove this novel.')),
-        );
-      }
+      if (mounted) _say('Could not remove this novel.');
     }
+  }
+
+  Future<List<TocEntry>> _chaptersOf(LibraryNovel novel) {
+    // The store replaces a novel's entry when its book is downloaded again;
+    // the parsed contents are cached, so asking again is cheap.
+    if (_chapters == null || !identical(_chaptersFor, novel)) {
+      _chaptersFor = novel;
+      _chapters = (widget.chapters ?? loadChapters)(novel);
+    }
+    return _chapters!;
   }
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: store,
+    listenable: Listenable.merge([store, ?widget.downloads]),
     builder: (context, _) {
-      final novel = store.novels.where((n) => n.url == url).firstOrNull;
+      final novel = store.find(url);
       if (novel == null) return const Scaffold(body: SizedBox.shrink());
-      final colors = Theme.of(context).colorScheme;
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Novel details'),
-          actions: [
-            if (!novel.isLocal)
-              IconButton(
-                tooltip: 'Open source website',
-                icon: const Icon(Icons.open_in_new),
-                onPressed: () => openSource(context, url),
-              ),
-            PopupMenuButton<String>(
-              onSelected: (_) => _remove(context),
-              itemBuilder: (_) => [
-                const PopupMenuItem(
-                  value: 'remove',
-                  child: Text('Remove from library'),
-                ),
-              ],
+      final status = widget.downloads?.statusOf(url);
+      return FutureBuilder<List<TocEntry>>(
+        future: _chaptersOf(novel),
+        builder: (context, snapshot) {
+          final chapters = snapshot.data ?? const <TocEntry>[];
+          return _page(novel, status, chapters, snapshot.hasData);
+        },
+      );
+    },
+  );
+
+  /// Index of the chapter the reader is in, or -1 before the first read.
+  int _current(List<TocEntry> chapters) {
+    final state = _state;
+    if (state == null || chapters.isEmpty) return -1;
+    if (state.progress <= 0 && state.chapter == 0 && state.offset == 0) {
+      return -1;
+    }
+    var current = 0;
+    for (var i = 0; i < chapters.length; i++) {
+      final c = chapters[i];
+      if (c.chapter < state.chapter ||
+          (c.chapter == state.chapter && c.offset <= state.offset)) {
+        current = i;
+      }
+    }
+    return current;
+  }
+
+  Widget _page(
+    LibraryNovel novel,
+    DownloadStatus? status,
+    List<TocEntry> chapters,
+    bool loaded,
+  ) {
+    final colors = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final current = _current(chapters);
+    final finished = (_state?.progress ?? 0) >= .999;
+    final downloading = status?.active ?? false;
+    final hasBook = novel.epub != null;
+    final order = [
+      for (var i = 0; i < chapters.length; i++)
+        _newestFirst ? chapters.length - 1 - i : i,
+    ];
+    final menu = PopupMenuButton<String>(
+      tooltip: 'More options',
+      onSelected: (value) => switch (value) {
+        'update' => widget.downloads?.enqueue(url),
+        'export' => exportEpub(context, novel),
+        'customize' => widget.onExport(novel),
+        'shelf' => _shelf(novel),
+        'remove' => _remove(),
+        _ => null,
+      },
+      itemBuilder: (_) => [
+        if (!novel.isLocal && widget.downloads != null)
+          PopupMenuItem(
+            value: 'update',
+            enabled: !downloading,
+            child: const Text('Check for new chapters'),
+          ),
+        if (hasBook)
+          const PopupMenuItem(value: 'export', child: Text('Save EPUB file')),
+        if (!novel.isLocal)
+          const PopupMenuItem(
+            value: 'customize',
+            child: Text('Customize EPUB…'),
+          ),
+        const PopupMenuItem(value: 'shelf', child: Text('Change shelf')),
+        const PopupMenuItem(
+          value: 'remove',
+          child: Text('Remove from library'),
+        ),
+      ],
+    );
+    final header = LayoutBuilder(
+      builder: (context, constraints) {
+        final stacked =
+            constraints.maxWidth < 320 ||
+            MediaQuery.textScalerOf(context).scale(1) > 1.25;
+        final cover = SizedBox(
+          width: stacked
+              ? 130
+              : constraints.maxWidth < 400
+              ? 108
+              : 160,
+          height: stacked
+              ? 195
+              : constraints.maxWidth < 400
+              ? 162
+              : 240,
+          child: NovelCover(novel: novel),
+        );
+        final details = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              novel.title,
+              style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              novel.author.isEmpty ? 'Unknown author' : novel.author,
+              style: text.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              [
+                novel.source,
+                if (hasBook && chapters.isNotEmpty)
+                  '${chapters.length} chapters',
+              ].join(' · '),
+              style: TextStyle(color: colors.onSurfaceVariant),
+            ),
+            const SizedBox(height: 16),
+            ActionChip(
+              avatar: const Icon(Icons.collections_bookmark_outlined, size: 18),
+              label: Text(novel.shelf),
+              onPressed: () => _shelf(novel),
             ),
           ],
+        );
+        return stacked
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [cover, const SizedBox(height: 24), details],
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  cover,
+                  const SizedBox(width: 24),
+                  Expanded(child: details),
+                ],
+              );
+      },
+    );
+    final synopsis = novel.description?.trim() ?? '';
+    final top = <Widget>[
+      header,
+      const SizedBox(height: 20),
+      if (status != null) _downloadCard(status),
+      if (status == null && !hasBook && !novel.isLocal)
+        Card(
+          child: ListTile(
+            leading: Icon(Icons.download_outlined, color: colors.primary),
+            title: const Text('Not downloaded yet'),
+            subtitle: const Text('Download the chapters to read them here.'),
+            trailing: FilledButton(
+              key: const Key('download-novel'),
+              onPressed: widget.downloads == null
+                  ? () => widget.onExport(novel)
+                  : () => widget.downloads!.enqueue(url),
+              child: const Text('Download'),
+            ),
+          ),
         ),
-        body: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 900),
-            child: ListView(
-              padding: const EdgeInsets.all(24),
+      if (synopsis.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => setState(() => _fullSynopsis = !_fullSynopsis),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final stacked =
-                        constraints.maxWidth < 320 ||
-                        MediaQuery.textScalerOf(context).scale(1) > 1.25;
-                    final cover = SizedBox(
-                      width: stacked
-                          ? 130
-                          : constraints.maxWidth < 400
-                          ? 108
-                          : 160,
-                      height: stacked
-                          ? 195
-                          : constraints.maxWidth < 400
-                          ? 162
-                          : 240,
-                      child: NovelCover(novel: novel),
-                    );
-                    final details = Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          novel.title,
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 14),
-                        Text(
-                          novel.author.isEmpty
-                              ? 'Unknown author'
-                              : novel.author,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          novel.isLocal
-                              ? novel.source
-                              : '${novel.source} · Light novel',
-                          style: TextStyle(color: colors.onSurfaceVariant),
-                        ),
-                        const SizedBox(height: 16),
-                        ActionChip(
-                          avatar: const Icon(
-                            Icons.collections_bookmark_outlined,
-                            size: 18,
-                          ),
-                          label: Text(novel.shelf),
-                          onPressed: () => _shelf(context, novel),
-                        ),
-                      ],
-                    );
-                    return stacked
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              cover,
-                              const SizedBox(height: 24),
-                              details,
-                            ],
-                          )
-                        : Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              cover,
-                              const SizedBox(width: 24),
-                              Expanded(child: details),
-                            ],
-                          );
-                  },
+                Text(
+                  synopsis,
+                  maxLines: _fullSynopsis ? null : 4,
+                  overflow: _fullSynopsis
+                      ? TextOverflow.visible
+                      : TextOverflow.ellipsis,
+                  style: TextStyle(height: 1.6, color: colors.onSurfaceVariant),
                 ),
-                const SizedBox(height: 28),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    if (novel.epub != null)
-                      FilledButton.icon(
-                        key: const Key('read-novel'),
-                        onPressed: () => onRead(novel),
-                        icon: const Icon(Icons.menu_book_outlined),
-                        label: Text(
-                          (novel.progress ?? 0) > 0.001
-                              ? 'Continue reading · ${(novel.progress! * 100).round()}%'
-                              : 'Start reading',
-                        ),
-                      ),
-                    if (!novel.isLocal)
-                      novel.epub == null
-                          ? FilledButton.icon(
-                              onPressed: () => onExport(novel),
-                              icon: const Icon(Icons.file_download_outlined),
-                              label: const Text('Create EPUB'),
-                            )
-                          : OutlinedButton.icon(
-                              onPressed: () => onExport(novel),
-                              icon: const Icon(Icons.sync),
-                              label: const Text('Update EPUB'),
-                            ),
-                    OutlinedButton.icon(
-                      onPressed: () => _shelf(context, novel),
-                      icon: const Icon(Icons.folder_outlined),
-                      label: const Text('Change shelf'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 32),
-                Text('Synopsis', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 12),
-                SelectableText(
-                  novel.description?.isNotEmpty == true
-                      ? novel.description!
-                      : 'No synopsis was provided by this source.',
+                Text(
+                  _fullSynopsis ? 'Show less' : 'Show more',
                   style: TextStyle(
-                    height: 1.65,
-                    color: colors.onSurfaceVariant,
+                    color: colors.primary,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 32),
-                const Divider(),
-                const SizedBox(height: 20),
-                Text('Reading', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 16),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.chrome_reader_mode_outlined,
-                          color: colors.primary,
-                          size: 28,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          novel.epub == null
-                              ? 'Download the chapters to read here'
-                              : (novel.progress ?? 0) >= .999
-                              ? 'You finished this book'
-                              : (novel.progress ?? 0) > 0.001
-                              ? '${(novel.progress! * 100).toStringAsFixed(1)}% read'
-                              : 'Ready to read',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        if (novel.epub != null &&
-                            (novel.progress ?? 0) > 0) ...[
-                          const SizedBox(height: 12),
-                          LinearProgressIndicator(
-                            value: novel.progress,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ],
-                        const SizedBox(height: 8),
-                        Text(
-                          novel.epub == null
-                              ? 'Create the EPUB and it is kept here for the built-in reader, with pages, themes, bookmarks, highlights and reading statistics.'
-                              : novel.isLocal
-                              ? 'Imported from an EPUB file on this device.'
-                              : 'Use Update EPUB to collect newly released chapters. Your place, bookmarks and highlights are kept.',
-                          style: const TextStyle(height: 1.5),
-                        ),
-                        if (!novel.isLocal && novel.firstChapter.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 16),
-                            child: TextButton.icon(
-                              onPressed: () =>
-                                  openSource(context, novel.firstChapter),
-                              icon: const Icon(Icons.open_in_new, size: 18),
-                              label: const Text(
-                                'First chapter on source website',
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 32),
               ],
             ),
           ),
         ),
+      ],
+      const SizedBox(height: 16),
+      if (hasBook)
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                loaded ? '${chapters.length} chapters' : 'Chapters',
+                style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+            IconButton(
+              tooltip: _newestFirst ? 'Show oldest first' : 'Show newest first',
+              icon: Icon(
+                _newestFirst ? Icons.arrow_downward : Icons.arrow_upward,
+              ),
+              onPressed: () => setState(() => _newestFirst = !_newestFirst),
+            ),
+          ],
+        ),
+    ];
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Novel details'),
+        actions: [
+          if (!novel.isLocal)
+            IconButton(
+              tooltip: 'Open source website',
+              icon: const Icon(Icons.open_in_new),
+              onPressed: () => openSource(context, url),
+            ),
+          menu,
+        ],
+      ),
+      floatingActionButton: hasBook
+          ? FloatingActionButton.extended(
+              key: const Key('read-novel'),
+              onPressed: () => _read(novel),
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: Text(
+                finished
+                    ? 'Read again'
+                    : current >= 0
+                    ? 'Resume'
+                    : 'Start',
+              ),
+            )
+          : null,
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 900),
+          child: CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                sliver: SliverList.list(children: top),
+              ),
+              if (hasBook && !loaded)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                ),
+              if (hasBook && loaded && chapters.isEmpty)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text("This book's chapter list couldn't be read."),
+                  ),
+                ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 96),
+                sliver: SliverList.builder(
+                  itemCount: order.length,
+                  itemBuilder: (context, i) {
+                    final index = order[i];
+                    final chapter = chapters[index];
+                    final read = finished || index < current;
+                    final here = index == current && !finished;
+                    return ListTile(
+                      key: ValueKey('chapter-$index'),
+                      contentPadding: EdgeInsets.only(
+                        left: 16 + chapter.depth * 16.0,
+                        right: 16,
+                      ),
+                      title: Text(
+                        chapter.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: read ? FontWeight.w400 : FontWeight.w600,
+                          color: read
+                              ? colors.onSurface.withValues(alpha: .45)
+                              : null,
+                        ),
+                      ),
+                      subtitle: here
+                          ? Text(
+                              'Reading',
+                              style: TextStyle(color: colors.primary),
+                            )
+                          : null,
+                      trailing: here
+                          ? Icon(
+                              Icons.bookmark_rounded,
+                              color: colors.primary,
+                              size: 20,
+                            )
+                          : null,
+                      onTap: () => _read(
+                        novel,
+                        chapter: chapter.chapter,
+                        offset: chapter.offset,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _downloadCard(DownloadStatus status) {
+    final colors = Theme.of(context).colorScheme;
+    if (status.phase == DownloadPhase.failed) {
+      return Card(
+        child: ListTile(
+          leading: Icon(Icons.error_outline, color: colors.error),
+          title: const Text('Download stopped'),
+          subtitle: Text(status.error ?? 'Something went wrong.'),
+          trailing: TextButton(
+            onPressed: () => widget.downloads?.enqueue(url),
+            child: const Text('Retry'),
+          ),
+        ),
       );
-    },
-  );
+    }
+    final queued = status.phase == DownloadPhase.queued;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    queued
+                        ? 'Waiting to download'
+                        : 'Downloading · ${status.chapters} '
+                              '${status.chapters == 1 ? 'chapter' : 'chapters'}',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => widget.downloads?.cancel(url),
+                  child: const Text('Cancel'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const LinearProgressIndicator(),
+            if (status.chapterTitle.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                status.chapterTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: colors.onSurfaceVariant),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 }

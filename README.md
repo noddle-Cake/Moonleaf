@@ -32,8 +32,15 @@ be run manually from GitHub Actions on `master`.
 
 The Flutter app uses a Mihon-inspired library layout with cover grids or lists,
 search, sorting, and **Plan to read / Reading / Completed** shelves. Add a novel
-from **Browse → Add novel URL**, open its details, and choose **Create EPUB**.
-**More → Create an EPUB** also opens the standalone export tool.
+from **Browse → Add novel URL** (a novel page or any chapter link): Moonleaf
+opens its page and downloads the chapters in the background, so the book is
+ready to read without a separate export step. Like Mihon, the novel page lists
+its chapters, newest first by default, dims the ones you've read, and marks
+where you are. Tap a chapter to open it, or **Start / Resume**. Chapter names
+are tidied to **Chapter N: Name**, dropping the book title when a site repeats
+it. **Check for new chapters**, **Save EPUB file**, and **Customize EPUB…** are
+in the novel page menu, and **More → Create an EPUB** opens the standalone
+export tool.
 
 Library metadata, shelves, recently opened novels, reading progress, and
 appearance preferences are saved locally. Automatic update checking is planned;
@@ -45,9 +52,9 @@ installed.
 Moonleaf includes a KOReader-inspired EPUB reader, so the app covers finding,
 downloading, and reading a novel:
 
-- When an EPUB finishes building, a copy is kept with the novel. Choose
-  **Read now**, or **Start/Continue reading** on the novel's page. **Save EPUB
-  file** still exports it for other apps.
+- Added novels download automatically and are kept with the novel. Open any
+  chapter from the novel's page, or use **Start / Resume**. **Save EPUB file**
+  exports it for other apps.
 - **Open an EPUB file** (library toolbar, Browse, or More) imports any EPUB on
   the device into the library and opens it.
 - Paginated or continuous view, with instant, slide, or fade page turns.

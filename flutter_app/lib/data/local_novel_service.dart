@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import 'chapter_titles.dart';
 import 'epub_writer.dart';
 import 'novel_service.dart';
 import 'site_extractors.dart';
@@ -148,13 +149,22 @@ class LocalNovelService implements NovelService {
         final chapter = parser.chapter(source, current, chapters.length + 1);
         chapters.add(chapter);
         job.chapters = chapters.length;
-        job.title = chapter.title;
+        job.title = cleanChapterTitle(chapter.title, title, chapters.length);
         current = chapter.next;
       }
       if (_closed || job.cancelled) return;
+      final named = [
+        for (var i = 0; i < chapters.length; i++)
+          NovelChapter(
+            cleanChapterTitle(chapters[i].title, title, i + 1),
+            chapters[i].content,
+            chapters[i].url,
+            chapters[i].next,
+          ),
+      ];
       final bytes = await compute(
         buildEpub,
-        EpubBook(title, author, chapters, cover),
+        EpubBook(title, author, named, cover),
       );
       if (_closed || job.cancelled) return;
       job.bytes = bytes;
