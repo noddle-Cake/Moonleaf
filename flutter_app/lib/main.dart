@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'data/novel_api.dart';
 import 'data/local_novel_service.dart';
+import 'library/downloads.dart';
 import 'library/library_store.dart';
 import 'library/library_screen.dart';
 import 'theme.dart';
@@ -10,9 +11,17 @@ import 'theme.dart';
 void main() => runApp(const NovelApp());
 
 class NovelApp extends StatefulWidget {
-  const NovelApp({super.key, this.service, this.store});
+  const NovelApp({
+    super.key,
+    this.service,
+    this.store,
+    this.autoDownload = true,
+  });
   final NovelService? service;
   final LibraryStore? store;
+
+  /// Download newly added novels in the background (off in some tests).
+  final bool autoDownload;
   @override
   State<NovelApp> createState() => _NovelAppState();
 }
@@ -20,13 +29,18 @@ class NovelApp extends StatefulWidget {
 class _NovelAppState extends State<NovelApp> {
   late final NovelService _service;
   LibraryStore? _store;
+  DownloadManager? _downloads;
   String? _loadError;
   @override
   void initState() {
     super.initState();
     _service = widget.service ?? (kIsWeb ? NovelApi() : LocalNovelService());
     _store = widget.store;
-    if (_store == null) _load();
+    if (_store == null) {
+      _load();
+    } else {
+      _startDownloads();
+    }
   }
 
   Future<void> _load() async {
@@ -35,6 +49,7 @@ class _NovelAppState extends State<NovelApp> {
       final store = await LibraryStore.load();
       if (mounted) {
         setState(() => _store = store);
+        _startDownloads();
       } else {
         store.dispose();
       }
@@ -48,8 +63,20 @@ class _NovelAppState extends State<NovelApp> {
     }
   }
 
+  void _startDownloads() {
+    final store = _store;
+    if (store == null || !widget.autoDownload) return;
+    _downloads = DownloadManager(
+      store: store,
+      service: _service,
+      // The web client's server fetches covers itself.
+      fetchCovers: !kIsWeb,
+    );
+  }
+
   @override
   void dispose() {
+    _downloads?.dispose();
     if (widget.service == null) _service.close();
     if (widget.store == null) _store?.dispose();
     super.dispose();
@@ -136,7 +163,11 @@ class _NovelAppState extends State<NovelApp> {
               ),
             );
           },
-          home: LibraryScreen(store: store, service: _service),
+          home: LibraryScreen(
+            store: store,
+            service: _service,
+            downloads: _downloads,
+          ),
         );
       },
     );

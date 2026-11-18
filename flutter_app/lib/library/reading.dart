@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
 
 import '../data/novel_service.dart';
@@ -42,8 +43,10 @@ String bookFingerprint(List<int> bytes) {
 Future<void> readNovel(
   BuildContext context,
   LibraryStore store,
-  LibraryNovel novel,
-) async {
+  LibraryNovel novel, {
+  int? chapter,
+  int? offset,
+}) async {
   final key = novel.epub;
   if (key == null) return;
   final bytes = await readBook(key);
@@ -66,6 +69,8 @@ Future<void> readNovel(
     bookId: novel.url,
     bytes: bytes,
     ereaderApp: ereaderAppearance(store),
+    chapter: chapter,
+    offset: offset,
     onProgress: (p) {
       if ((p - (store.find(novel.url)?.progress ?? -1)).abs() > .0005) {
         store.setProgress(novel.url, p).catchError((Object _) {});
@@ -86,6 +91,7 @@ Future<LibraryNovel?> keepEpub(
     'web-${bookFingerprint(canonical.codeUnits)}',
     bytes is Uint8List ? bytes : Uint8List.fromList(bytes),
   );
+  _chapters.remove(key);
   await store.attachEpub(canonical, key, metadata);
   return store.find(canonical);
 }
@@ -153,10 +159,55 @@ Future<void> importEpub(BuildContext context, LibraryStore store) async {
   if (novel != null && context.mounted) await readNovel(context, store, novel);
 }
 
+final _chapters = <String, Future<List<TocEntry>>>{};
+
+/// The contents of a novel's kept EPUB, parsed once and cached.
+Future<List<TocEntry>> loadChapters(LibraryNovel novel) {
+  final key = novel.epub;
+  if (key == null) return Future.value(const []);
+  return _chapters.putIfAbsent(key, () async {
+    try {
+      final bytes = await readBook(key);
+      if (bytes == null) throw StateError('missing');
+      return (await parseEpub(bytes)).toc;
+    } catch (_) {
+      // Don't cache failures, so the next visit tries again.
+      _chapters.remove(key);
+      return const <TocEntry>[];
+    }
+  });
+}
+
+/// Saves the kept EPUB where the person chooses, for other reading apps.
+Future<void> exportEpub(BuildContext context, LibraryNovel novel) async {
+  final key = novel.epub;
+  final bytes = key == null ? null : await readBook(key);
+  if (!context.mounted) return;
+  if (bytes == null) {
+    _say(context, 'Download the book first.');
+    return;
+  }
+  try {
+    final path = await FileSaver.instance.saveAs(
+      name: novel.title.replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1f]'), '_'),
+      bytes: bytes,
+      fileExtension: 'epub',
+      mimeType: MimeType.custom,
+      customMimeType: 'application/epub+zip',
+    );
+    if (path != null && context.mounted) _say(context, 'EPUB saved.');
+  } catch (_) {
+    if (context.mounted) _say(context, 'Could not save the EPUB file.');
+  }
+}
+
 /// Deletes the app's copy of a book and its reading state.
 Future<void> forgetBook(LibraryNovel novel) async {
   try {
-    if (novel.epub != null) await deleteBook(novel.epub!);
+    if (novel.epub != null) {
+      _chapters.remove(novel.epub);
+      await deleteBook(novel.epub!);
+    }
     if (novel.coverFile != null) await deleteBook(novel.coverFile!);
     await BookState.forget(novel.url);
   } catch (_) {}

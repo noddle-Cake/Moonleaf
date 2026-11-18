@@ -33,11 +33,12 @@ class _AddNovelDialogState extends State<AddNovelDialog> {
       final metadata = await widget.service.detect(url);
       if (!mounted) return;
       // A chapter link is saved under its novel's main page.
-      await widget.store.add(
-        metadata.url.isEmpty ? url : metadata.url,
-        metadata,
-      );
-      if (mounted) Navigator.pop(context, true);
+      final saved = metadata.url.isEmpty ? url : metadata.url;
+      await widget.store.add(saved, metadata);
+      // Return the library key so the caller can open and download it.
+      if (mounted) {
+        Navigator.pop(context, widget.store.find(saved)?.url ?? saved);
+      }
     } catch (e) {
       if (mounted) {
         setState(
@@ -64,7 +65,7 @@ class _AddNovelDialogState extends State<AddNovelDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Paste a novel page, or a link to any of its chapters, from Royal Road or RoliaScan. Its details will be saved in your library.',
+                'Paste a novel page, or a link to any of its chapters, from Royal Road or RoliaScan. Moonleaf adds it to your library and downloads the chapters so you can start reading.',
               ),
               const SizedBox(height: 20),
               TextField(

@@ -3,6 +3,7 @@ from urllib.parse import urldefrag
 
 from extractors.base import ExtractionError
 from extractors.registry import get_extractor
+from services.chapter_titles import clean_chapter_title
 from services.epub_builder import EpubBuilder
 
 
@@ -45,9 +46,10 @@ class ExtractionService:
             visited.add(next_url)
             chapter = extractor.get_chapter(next_url, count)
             check_cancelled()
-            builder.add_chapter(chapter.title, chapter.html, count)
+            name = clean_chapter_title(chapter.title, title, count)
+            builder.add_chapter(name, chapter.html, count)
             if progress_callback:
-                progress_callback(count, chapter.title)
+                progress_callback(count, name)
             next_url = chapter.next_url
             count += 1
         check_cancelled()
