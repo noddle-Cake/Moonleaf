@@ -200,6 +200,38 @@ void main() {
     }
   });
 
+  test('keys and buttons map to page turns', () {
+    final s = ReaderSettings();
+    expect(s.actionFor(LogicalKeyboardKey.audioVolumeDown), KeyAction.next);
+    expect(s.actionFor(LogicalKeyboardKey.audioVolumeUp), KeyAction.previous);
+    expect(s.actionFor(LogicalKeyboardKey.pageDown), KeyAction.next);
+    expect(
+      s.actionFor(LogicalKeyboardKey.mediaTrackPrevious),
+      KeyAction.previous,
+    );
+    expect(s.actionFor(LogicalKeyboardKey.keyQ), isNull);
+    s.invertVolume = true;
+    expect(s.actionFor(LogicalKeyboardKey.audioVolumeUp), KeyAction.next);
+    s.volumeKeys = false;
+    expect(s.actionFor(LogicalKeyboardKey.audioVolumeUp), isNull);
+    s.keys = false;
+    expect(s.actionFor(LogicalKeyboardKey.pageDown), isNull);
+    // Assigned buttons work even with the built-in keys off, and replace
+    // an earlier assignment of the same button.
+    s.assignButton(LogicalKeyboardKey.pageDown, forward: false);
+    s.assignButton(LogicalKeyboardKey.f13, forward: true);
+    s.assignButton(LogicalKeyboardKey.f13, forward: false);
+    expect(s.actionFor(LogicalKeyboardKey.pageDown), KeyAction.previous);
+    expect(s.actionFor(LogicalKeyboardKey.f13), KeyAction.previous);
+    expect(s.buttons, hasLength(2));
+    final restored = ReaderSettings(s.toJson());
+    expect(restored.actionFor(LogicalKeyboardKey.f13), KeyAction.previous);
+    expect(restored.volumeKeys, isFalse);
+    expect(restored.invertVolume, isTrue);
+    s.dispose();
+    restored.dispose();
+  });
+
   group('reader screen', () {
     setUp(() => SharedPreferences.setMockInitialValues({}));
 
@@ -355,6 +387,57 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Back to where you were'), findsOneWidget);
+    });
+
+    testWidgets('volume and assigned buttons turn pages', (tester) async {
+      final settings = await open(tester);
+      // The footer shows "page / pages" once the book is counted.
+      String page() => tester
+          .widgetList<Text>(find.byType(Text))
+          .map((t) => t.data ?? '')
+          .firstWhere((t) => RegExp(r'^\d+ / \d+').hasMatch(t));
+      Future<void> press(LogicalKeyboardKey key) async {
+        await tester.sendKeyEvent(key);
+        await tester.runAsync(
+          () => Future.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      final start = page();
+      await press(LogicalKeyboardKey.audioVolumeDown);
+      final second = page();
+      expect(second, isNot(start));
+      await press(LogicalKeyboardKey.audioVolumeUp);
+      expect(page(), start);
+      settings.update((s) => s.volumeKeys = false);
+      await press(LogicalKeyboardKey.audioVolumeDown);
+      expect(page(), start);
+
+      // Assign another button from the reader's Controls settings.
+      await tester.tapAt(const Offset(195, 820));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Controls'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Button for next page'),
+        200,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.tap(find.text('Button for next page'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Press the button you want to use now.'),
+        findsOneWidget,
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.mediaPlayPause);
+      await tester.pumpAndSettle();
+      expect(settings.buttons.single.id, LogicalKeyboardKey.mediaPlayPause.keyId);
+      expect(settings.buttons.single.forward, isTrue);
+      Navigator.of(tester.element(find.text('Controls'))).pop();
+      await tester.pumpAndSettle();
+      await press(LogicalKeyboardKey.mediaPlayPause);
+      expect(page(), second);
     });
   });
 }

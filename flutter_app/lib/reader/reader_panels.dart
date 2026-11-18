@@ -398,14 +398,91 @@ extension _Panels on _ReaderScreenState {
       value: settings.pinch,
       onChanged: (v) => settings.update((s) => s.pinch = v),
     ),
+    _heading('Buttons'),
+    SwitchListTile(
+      key: const Key('volume-keys'),
+      contentPadding: EdgeInsets.zero,
+      title: const Text('Volume buttons turn pages'),
+      subtitle: Text(
+        settings.invertVolume
+            ? 'Volume up goes forward'
+            : 'Volume down goes forward',
+      ),
+      value: settings.volumeKeys,
+      onChanged: (v) => settings.update((s) => s.volumeKeys = v),
+    ),
     SwitchListTile(
       contentPadding: EdgeInsets.zero,
-      title: const Text('Keyboard and volume keys turn pages'),
-      subtitle: const Text('Arrows, Page Up/Down and Space'),
+      title: const Text('Reverse volume buttons'),
+      value: settings.invertVolume,
+      onChanged: settings.volumeKeys
+          ? (v) => settings.update((s) => s.invertVolume = v)
+          : null,
+    ),
+    SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      title: const Text('Keyboards and page turners'),
+      subtitle: const Text(
+        'Arrows, Page Up/Down, Space, and media next/previous from '
+        'Bluetooth remotes',
+      ),
       value: settings.keys,
       onChanged: (v) => settings.update((s) => s.keys = v),
     ),
+    for (final b in settings.buttons)
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(b.forward ? Icons.arrow_forward : Icons.arrow_back),
+        title: Text(b.label),
+        subtitle: Text(b.forward ? 'Next page' : 'Previous page'),
+        trailing: IconButton(
+          tooltip: 'Remove ${b.label}',
+          icon: const Icon(Icons.delete_outline),
+          onPressed: () => settings.update(
+            (s) => s.buttons = [
+              for (final other in s.buttons)
+                if (other.id != b.id) other,
+            ],
+          ),
+        ),
+      ),
+    Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        OutlinedButton.icon(
+          onPressed: () => _assignButton(settings, forward: true),
+          icon: const Icon(Icons.add),
+          label: const Text('Button for next page'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () => _assignButton(settings, forward: false),
+          icon: const Icon(Icons.add),
+          label: const Text('Button for previous page'),
+        ),
+      ],
+    ),
+    const SizedBox(height: 8),
+    Text(
+      'Assign e-reader page buttons, a camera key or a remote’s buttons. The '
+      'power button can’t be used; your device reserves it.',
+      style: TextStyle(
+        fontSize: 12,
+        color: Theme.of(_ctx).colorScheme.onSurfaceVariant,
+      ),
+    ),
   ]);
+
+  Future<void> _assignButton(
+    ReaderSettings settings, {
+    required bool forward,
+  }) async {
+    final key = await showDialog<LogicalKeyboardKey>(
+      context: _ctx,
+      builder: (context) => _ButtonCapture(forward: forward),
+    );
+    if (key != null) settings.assignButton(key, forward: forward);
+  }
 
   Widget _statusTab(ReaderSettings settings) => _panel([
     SwitchListTile(
@@ -1403,4 +1480,39 @@ class _StepperState extends State<_Stepper> {
       ),
     );
   }
+}
+
+/// Waits for the next button press and returns it.
+class _ButtonCapture extends StatelessWidget {
+  const _ButtonCapture({required this.forward});
+  final bool forward;
+  @override
+  Widget build(BuildContext context) => Focus(
+    autofocus: true,
+    onKeyEvent: (node, event) {
+      if (event is! KeyDownEvent) return KeyEventResult.handled;
+      final key = event.logicalKey;
+      // Back and Escape cancel instead of being assigned.
+      if (key == LogicalKeyboardKey.escape ||
+          key == LogicalKeyboardKey.goBack) {
+        Navigator.pop(context);
+      } else {
+        Navigator.pop(context, key);
+      }
+      return KeyEventResult.handled;
+    },
+    child: AlertDialog(
+      icon: const Icon(Icons.touch_app_outlined),
+      title: Text(
+        forward ? 'Button for next page' : 'Button for previous page',
+      ),
+      content: const Text('Press the button you want to use now.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+      ],
+    ),
+  );
 }

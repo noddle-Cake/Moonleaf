@@ -711,29 +711,18 @@ class _ReaderScreenState extends State<ReaderScreen>
       }
       return KeyEventResult.ignored;
     }
-    if (!s.keys) return KeyEventResult.ignored;
-    if ({
-      LogicalKeyboardKey.arrowRight,
-      LogicalKeyboardKey.pageDown,
-      LogicalKeyboardKey.space,
-      LogicalKeyboardKey.audioVolumeDown,
-    }.contains(key)) {
-      _next();
-      return KeyEventResult.handled;
+    switch (s.actionFor(key)) {
+      case KeyAction.next:
+        _next();
+      case KeyAction.previous:
+        _previous();
+      case KeyAction.menu:
+        _setMenu(!_menu);
+      case null:
+        return KeyEventResult.ignored;
     }
-    if ({
-      LogicalKeyboardKey.arrowLeft,
-      LogicalKeyboardKey.pageUp,
-      LogicalKeyboardKey.audioVolumeUp,
-    }.contains(key)) {
-      _previous();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.keyM || key == LogicalKeyboardKey.enter) {
-      _setMenu(!_menu);
-      return KeyEventResult.handled;
-    }
-    return KeyEventResult.ignored;
+    // Handled keys are consumed, so volume buttons don't change the volume.
+    return KeyEventResult.handled;
   }
 
   // ---------------------------------------------------------------------------
