@@ -1,7 +1,24 @@
 # Moonleaf
 
 Convert supported web novels to EPUB while preserving chapter formatting.
-Currently supports Royal Road and RoliaScan text novels.
+
+| Source | How Moonleaf gets the book |
+|---|---|
+| Royal Road | Follows the chapters |
+| Scribble Hub | Follows the chapters in the app's built-in browser |
+| FanFiction.net / FictionPress | Follows the chapters in the app's built-in browser |
+| AO3 (Archive of Our Own) | Downloads AO3's own EPUB of the work |
+| Standard Ebooks | Downloads the book's compatible EPUB |
+| RoliaScan | Follows the chapters |
+
+Scribble Hub and FanFiction.net ask every visitor to pass a human check
+(Cloudflare), so plain requests are blocked. The Android, iOS and macOS apps
+load their pages in a hidden WebView instead. If a check doesn't pass on its
+own, the app shows it so you can complete it, then keeps downloading at a
+gentle pace (one page every 1.5 seconds). The web client and Python API can't
+show the check, so they explain that these sites need the app. AO3 works that
+only signed-in members can see can't be downloaded. Wattpad isn't supported
+because its terms of service prohibit scraping.
 
 Paste a novel's main page, or a link to any of its chapters. A chapter link
 finds its novel and downloads the whole book from chapter 1. Royal Road chapter

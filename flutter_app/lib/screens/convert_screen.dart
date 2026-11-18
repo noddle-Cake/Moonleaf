@@ -457,8 +457,7 @@ class _ConvertScreenState extends State<ConvertScreen> {
                     keyboardType: TextInputType.url,
                     decoration: const InputDecoration(
                       labelText: 'Novel or chapter URL',
-                      hintText:
-                          'A Royal Road or RoliaScan novel or chapter link',
+                      hintText: 'A novel or chapter link from a supported site',
                     ),
                     onChanged: (_) => setState(() {
                       _metadata = null;

@@ -1,4 +1,5 @@
 import json
+import re
 from abc import ABC, abstractmethod
 from urllib.parse import urljoin, urlsplit
 
@@ -15,6 +16,8 @@ class ExtractionError(ValueError):
 
 class BaseExtractor(ABC):
     hosts: tuple[str, ...] = ()
+    # Sites that publish their own EPUB: download it instead of chapters.
+    official_epub = False
 
     def __init__(self, session=None, timeout: float = 30):
         self.session = session if session is not None else requests.Session()
@@ -33,9 +36,11 @@ class BaseExtractor(ABC):
     def get_book_metadata(self, url: str) -> BookMetadata:
         """Metadata for a novel page, or for the novel a chapter link belongs to."""
         url = self.novel_url(url)
-        response = self.fetch(url)
+        requested = self.fetch_url(url)
+        response = self.fetch(requested)
         metadata = self.parse_book(BeautifulSoup(response.content, "html.parser"), response.url)
-        metadata["url"] = response.url
+        # Keep redirects (such as a slug being added), but not request flags.
+        metadata["url"] = url if response.url == requested else response.url
         return metadata
 
     def novel_url(self, url: str) -> str:
@@ -51,6 +56,30 @@ class BaseExtractor(ABC):
             raise ExtractionError(
                 "Couldn't find the novel page for this chapter. Paste the novel's main page instead.")
         return novel
+
+    def fetch_url(self, url: str) -> str:
+        """The address to request for a page (for example with consent flags)."""
+        return url
+
+    def epub_link(self, soup: BeautifulSoup, url: str) -> str | None:
+        """The official EPUB linked from a book page."""
+        return None
+
+    def fetch_file(self, url: str) -> bytes:
+        """Download a file, following an HTML "your download is starting" page."""
+        for _ in range(3):
+            if not self.supports(url):
+                raise ExtractionError(f"The download left the supported site: {url}")
+            response = self.fetch(url)
+            if "html" not in response.headers.get("content-type", ""):
+                return response.content
+            refresh = re.search(r'http-equiv=["\']refresh["\'][^>]*url=([^"\'>\s]+)',
+                                response.text, re.I)
+            target = self.link(url, refresh.group(1).replace("&amp;", "&")) if refresh else None
+            if not target:
+                break
+            url = target
+        raise ExtractionError("The site sent a web page instead of the EPUB.")
 
     @staticmethod
     def segments(url: str) -> list[str]:
