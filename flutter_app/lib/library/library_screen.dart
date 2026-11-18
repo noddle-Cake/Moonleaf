@@ -1,23 +1,50 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../browser/browser_loader.dart';
 import '../data/novel_service.dart';
 import '../screens/convert_screen.dart';
+import '../ui/components.dart';
+import '../ui/tokens.dart';
 import 'add_novel_dialog.dart';
+import 'downloads.dart';
 import 'library_store.dart';
 import 'novel_cover.dart';
 import 'novel_detail_screen.dart';
-import '../browser/browser_loader.dart';
-import 'downloads.dart';
 import 'reading.dart';
 
+part 'tabs/library_tab.dart';
+part 'tabs/updates_tab.dart';
+part 'tabs/reading_tab.dart';
+part 'tabs/settings_tab.dart';
+part 'tabs/search_tab.dart';
+
 const appearanceLabels = {
-  AppAppearance.system: 'Follow system',
+  AppAppearance.system: 'Follow System',
   AppAppearance.light: 'Light',
   AppAppearance.dark: 'Dark',
-  AppAppearance.ereaderLight: 'E-reader light',
-  AppAppearance.ereaderDark: 'E-reader dark',
+  AppAppearance.ereaderLight: 'E-reader Light',
+  AppAppearance.ereaderDark: 'E-reader Dark',
 };
 
+enum _Tab {
+  library(
+    'Library',
+    CupertinoIcons.collections,
+    CupertinoIcons.collections_solid,
+  ),
+  updates('Updates', CupertinoIcons.bell, CupertinoIcons.bell_fill),
+  reading('Reading', CupertinoIcons.book, CupertinoIcons.book_fill),
+  settings('Settings', CupertinoIcons.gear, CupertinoIcons.gear_solid),
+  search('Search', CupertinoIcons.search, CupertinoIcons.search);
+
+  const _Tab(this.label, this.icon, this.selectedIcon);
+  final String label;
+  final IconData icon, selectedIcon;
+}
+
+/// The app's home: five tabs (Library, Updates, Reading, Settings and
+/// Search) on a translucent tab bar, or a sidebar on wide screens.
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({
     super.key,
@@ -36,53 +63,50 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
-  int _destination = 0;
+  _Tab _tab = _Tab.library;
   String _shelf = 'All';
   final _search = TextEditingController();
-  bool _searching = false;
-  static const _destinations = [
-    (
-      'Library',
-      Icons.collections_bookmark_outlined,
-      Icons.collections_bookmark,
-    ),
-    ('Updates', Icons.new_releases_outlined, Icons.new_releases),
-    ('History', Icons.history_outlined, Icons.history),
-    ('Browse', Icons.explore_outlined, Icons.explore),
-    ('More', Icons.more_horiz, Icons.more_horiz),
-  ];
+  final _globalSearch = TextEditingController();
   LibraryStore get store => widget.store;
+
   @override
   void dispose() {
     _search.dispose();
+    _globalSearch.dispose();
     super.dispose();
   }
+
+  void _rebuild() => setState(() {});
+
+  void _go(_Tab tab) => setState(() => _tab = tab);
+
+  void _say(String message) => ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(message)));
 
   Future<void> _save(Future<void> action) async {
     try {
       await action;
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Could not save this change on your device. Please try again.',
-            ),
-          ),
-        );
+        _say('Could not save this change on your device. Please try again.');
       }
     }
   }
 
-  Future<void> _add() async {
-    final added = await showDialog<String>(
+  /// Opens the Add a Novel sheet, then the novel's page while it downloads.
+  Future<void> _add([String? initial]) async {
+    final added = await showAppleSheet<String>(
       context: context,
-      barrierDismissible: false,
-      builder: (_) => AddNovelDialog(store: store, service: widget.service),
+      builder: (context, _) => AddNovelDialog(
+        store: store,
+        service: widget.service,
+        initialUrl: initial,
+      ),
     );
     if (added == null || !mounted) return;
     setState(() {
-      _destination = 0;
+      _tab = _Tab.library;
       _shelf = 'All';
       _search.clear();
     });
@@ -111,7 +135,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Future<void> _open(LibraryNovel novel) async {
     await _save(store.opened(novel.url));
     if (!mounted) return;
-    Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute<void>(
         builder: (_) => NovelDetailScreen(
@@ -124,89 +148,221 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  Future<void> _display() async {
-    await showModalBottomSheet<void>(
+  /// Actions for a book, shown on long-press like a context menu.
+  Future<void> _actions(LibraryNovel novel) async {
+    final choice = await showCupertinoModalPopup<String>(
       context: context,
-      showDragHandle: true,
-      builder: (context) => ListenableBuilder(
-        listenable: store,
-        builder: (context, _) => SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-                child: Text(
-                  'Library display',
-                  style: Theme.of(context).textTheme.titleLarge,
+      builder: (context) => CupertinoActionSheet(
+        title: Text(novel.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+        actions: [
+          if (novel.epub != null)
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.pop(context, 'read'),
+              child: Text((novel.progress ?? 0) > 0.001 ? 'Resume' : 'Read'),
+            ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(context, 'open'),
+            child: const Text('Show Details'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(context, 'shelf'),
+            child: const Text('Change Shelf'),
+          ),
+          if (!novel.isLocal && novel.epub != null && widget.downloads != null)
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.pop(context, 'update'),
+              child: const Text('Check for New Chapters'),
+            ),
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(context, 'remove'),
+            child: const Text('Remove from Library'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'read':
+        await readNovel(context, store, novel);
+      case 'open':
+        await _open(novel);
+      case 'shelf':
+        await _pickShelf(novel);
+      case 'update':
+        widget.downloads?.enqueue(novel.url);
+        _say('Checking ${novel.title} for new chapters');
+      case 'remove':
+        await _remove(novel);
+    }
+  }
+
+  Future<void> _pickShelf(LibraryNovel novel) async {
+    final shelf = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: const Text('Move to Shelf'),
+        actions: [
+          for (final s in shelves)
+            CupertinoActionSheetAction(
+              isDefaultAction: s == novel.shelf,
+              onPressed: () => Navigator.pop(context, s),
+              child: Text(s),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
+    if (shelf != null) await _save(store.setShelf(novel.url, shelf));
+  }
+
+  Future<void> _remove(LibraryNovel novel) async {
+    final confirm = await showAppleAlert<bool>(
+      context: context,
+      title: 'Remove “${novel.title}”?',
+      message:
+          'Its reading progress, bookmarks and highlights are removed too. '
+          'EPUB files you saved elsewhere stay on your device.',
+      actions: const [
+        AlertAction('Cancel', false),
+        AlertAction('Remove', true, destructive: true),
+      ],
+    );
+    if (confirm != true) return;
+    await widget.downloads?.cancel(novel.url);
+    await _save(store.remove(novel.url));
+    await forgetBook(novel);
+  }
+
+  /// A tab's page: a large title that shrinks on scroll, then its content.
+  Widget _page({
+    required String title,
+    List<Widget> actions = const [],
+    required List<Widget> slivers,
+  }) {
+    final p = Palette.of(context);
+    return CustomScrollView(
+      key: PageStorageKey('tab-$title'),
+      slivers: [
+        CupertinoSliverNavigationBar(
+          largeTitle: Text(title),
+          backgroundColor: p.background.withValues(alpha: p.eink ? 1 : .94),
+          border: null,
+          automaticallyImplyLeading: false,
+          automaticallyImplyTitle: false,
+          trailing: actions.isEmpty
+              ? null
+              : Row(mainAxisSize: MainAxisSize.min, children: actions),
+        ),
+        ...slivers,
+        // Room for the floating tab bar.
+        const SliverToBoxAdapter(child: SizedBox(height: 96)),
+      ],
+    );
+  }
+
+  Widget _empty({
+    required IconData icon,
+    required String title,
+    required String message,
+    String? action,
+    VoidCallback? onAction,
+  }) {
+    final p = Palette.of(context);
+    return SliverFillRemaining(
+      hasScrollBody: false,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 56, color: p.tertiaryLabel),
+                const SizedBox(height: 20),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: TextStyles.title2.copyWith(color: p.label),
                 ),
-              ),
-              SwitchListTile(
-                title: const Text('Cover grid'),
-                subtitle: const Text('Turn off for a compact list'),
-                value: store.grid,
-                onChanged: (v) => _save(store.setAppearance(grid: v)),
-              ),
-              SwitchListTile(
-                title: const Text('Sort by title'),
-                subtitle: const Text('Otherwise, show newest additions first'),
-                value: store.sortByTitle,
-                onChanged: (v) => _save(store.setAppearance(sortByTitle: v)),
-              ),
-              const SizedBox(height: 24),
-            ],
+                const SizedBox(height: 10),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: TextStyles.body.copyWith(color: p.secondaryLabel),
+                ),
+                if (action != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 24),
+                    child: CapsuleButton(label: action, onPressed: onAction),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Future<void> _appearance() async {
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (context) => ListenableBuilder(
-        listenable: store,
-        builder: (context, _) => SafeArea(
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
-                  child: Text(
-                    'Appearance',
-                    style: Theme.of(context).textTheme.titleLarge,
+  /// A compact book row: cover, title and detail line.
+  Widget _row(
+    LibraryNovel novel, {
+    String? subtitle,
+    Widget? trailing,
+    double? progress,
+    bool busy = false,
+  }) {
+    final p = Palette.of(context);
+    return InkWell(
+      key: ValueKey('row-${novel.url}'),
+      onTap: () => _open(novel),
+      onLongPress: () => _actions(novel),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            SizedBox(width: 44, height: 64, child: NovelCover(novel: novel)),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    novel.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyles.headline.copyWith(color: p.label),
                   ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                  child: Text(
-                    'E-reader modes use monochrome colors, higher contrast, and reduced motion.',
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle ?? '${novel.source} · ${novel.shelf}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyles.subheadline.copyWith(
+                      color: p.secondaryLabel,
+                    ),
                   ),
-                ),
-                for (final entry in appearanceLabels.entries)
-                  ListTile(
-                    key: Key('appearance-${entry.key.name}'),
-                    leading: Icon(switch (entry.key) {
-                      AppAppearance.system => Icons.brightness_auto_outlined,
-                      AppAppearance.light => Icons.light_mode_outlined,
-                      AppAppearance.dark => Icons.dark_mode_outlined,
-                      _ => Icons.chrome_reader_mode_outlined,
-                    }),
-                    title: Text(entry.value),
-                    trailing: store.appearance == entry.key
-                        ? const Icon(Icons.check_rounded)
-                        : null,
-                    onTap: () => _save(store.setAppearance(theme: entry.key)),
-                  ),
-                const SizedBox(height: 24),
-              ],
+                  if (progress != null || busy) ...[
+                    const SizedBox(height: 8),
+                    LinearProgressIndicator(
+                      value: busy ? null : progress,
+                      minHeight: 3,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ],
+                ],
+              ),
             ),
-          ),
+            ?trailing,
+          ],
         ),
       ),
     );
@@ -218,617 +374,142 @@ class _LibraryScreenState extends State<LibraryScreen> {
     builder: (context, _) => LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= 840;
-        final ereader =
-            store.appearance == AppAppearance.ereaderLight ||
-            store.appearance == AppAppearance.ereaderDark;
-        final content = Scaffold(
-          appBar: AppBar(
-            title: _destination == 0 && _searching
-                ? TextField(
-                    key: const Key('library-search'),
-                    controller: _search,
-                    autofocus: true,
-                    onChanged: (_) => setState(() {}),
-                    decoration: const InputDecoration(
-                      hintText: 'Search your library',
-                      border: InputBorder.none,
-                      filled: false,
-                    ),
-                  )
-                : Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          _destinations[_destination].$1,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+        final body = switch (_tab) {
+          _Tab.library => _libraryTab(),
+          _Tab.updates => _updatesTab(),
+          _Tab.reading => _readingTab(),
+          _Tab.settings => _settingsTab(),
+          _Tab.search => _searchTab(),
+        };
+        final p = Palette.of(context);
+        if (wide) {
+          final extended = constraints.maxWidth >= 1100;
+          return Scaffold(
+            body: Row(
+              children: [
+                NavigationRail(
+                  extended: extended,
+                  selectedIndex: _tab.index,
+                  onDestinationSelected: (i) => _go(_Tab.values[i]),
+                  labelType: extended
+                      ? NavigationRailLabelType.none
+                      : NavigationRailLabelType.all,
+                  selectedIconTheme: IconThemeData(color: p.accent),
+                  unselectedIconTheme: IconThemeData(color: p.secondaryLabel),
+                  destinations: [
+                    for (final t in _Tab.values)
+                      NavigationRailDestination(
+                        icon: Icon(t.icon),
+                        selectedIcon: Icon(t.selectedIcon),
+                        label: Text(t.label),
                       ),
-                      if (_destination == 0 &&
-                          store.novels.isNotEmpty &&
-                          constraints.maxWidth >= 400)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 10),
-                          child: Text(
-                            '${store.novels.length}',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-            actions: [
-              if (_destination == 0) ...[
-                IconButton(
-                  tooltip: 'Open an EPUB file',
-                  icon: const Icon(Icons.file_open_outlined),
-                  onPressed: () => importEpub(context, store),
+                  ],
                 ),
-                IconButton(
-                  tooltip: _searching ? 'Close search' : 'Search library',
-                  icon: Icon(_searching ? Icons.close : Icons.search),
-                  onPressed: () => setState(() {
-                    _searching = !_searching;
-                    _search.clear();
-                  }),
-                ),
-                IconButton(
-                  tooltip: 'Library display',
-                  icon: const Icon(Icons.filter_list),
-                  onPressed: _display,
-                ),
+                VerticalDivider(width: .5, thickness: .5, color: p.separator),
+                Expanded(child: body),
               ],
-              IconButton(
-                tooltip: 'Appearance',
-                icon: const Icon(Icons.contrast),
-                onPressed: _appearance,
-              ),
-              const SizedBox(width: 8),
-            ],
-          ),
-          body: switch (_destination) {
-            0 => _library(),
-            1 => _updates(),
-            2 => _history(),
-            3 => _browse(),
-            _ => _more(),
-          },
-          floatingActionButton: _destination == 0 && store.novels.isNotEmpty
-              ? FloatingActionButton.extended(
-                  onPressed: _add,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add novel'),
-                )
-              : null,
-          bottomNavigationBar: wide
-              ? null
-              : NavigationBar(
-                  animationDuration: ereader
-                      ? Duration.zero
-                      : const Duration(milliseconds: 250),
-                  selectedIndex: _destination,
-                  onDestinationSelected: (i) =>
-                      setState(() => _destination = i),
-                  destinations: _destinations
-                      .map(
-                        (d) => NavigationDestination(
-                          icon: Icon(d.$2),
-                          selectedIcon: Icon(d.$3),
-                          label: d.$1,
-                        ),
-                      )
-                      .toList(),
-                ),
-        );
-        if (!wide) return content;
+            ),
+          );
+        }
         return Scaffold(
-          body: Row(
-            children: [
-              SafeArea(
-                child: NavigationRail(
-                  selectedIndex: _destination,
-                  onDestinationSelected: (i) =>
-                      setState(() => _destination = i),
-                  labelType: NavigationRailLabelType.all,
-                  leading: Padding(
-                    padding: const EdgeInsets.only(top: 16, bottom: 28),
-                    child: Tooltip(
-                      message: 'Moonleaf',
-                      child: Icon(
-                        Icons.auto_stories_rounded,
-                        size: 30,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                  ),
-                  destinations: _destinations
-                      .map(
-                        (d) => NavigationRailDestination(
-                          icon: Icon(d.$2),
-                          selectedIcon: Icon(d.$3),
-                          label: Text(d.$1),
-                        ),
-                      )
-                      .toList(),
-                ),
-              ),
-              VerticalDivider(
-                width: 1,
-                color: Theme.of(context).colorScheme.outlineVariant,
-              ),
-              Expanded(child: content),
-            ],
+          extendBody: true,
+          body: body,
+          bottomNavigationBar: _TabBar(
+            current: _tab,
+            onSelect: _go,
+            badge: widget.downloads?.busy ?? false ? _Tab.updates : null,
           ),
         );
       },
     ),
   );
+}
 
-  Widget _library() {
-    final query = _search.text.trim().toLowerCase();
-    final novels = store.novels
-        .where(
-          (n) =>
-              (_shelf == 'All' || n.shelf == _shelf) &&
-              '${n.title} ${n.author} ${n.source}'.toLowerCase().contains(
-                query,
-              ),
-        )
-        .toList();
-    novels.sort(
-      store.sortByTitle
-          ? (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase())
-          : (a, b) => b.addedAt.compareTo(a.addedAt),
-    );
-    return Column(
-      children: [
-        SizedBox(
-          height: 58,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            children: ['All', ...shelves]
-                .map(
-                  (s) => Padding(
-                    padding: const EdgeInsets.only(right: 10),
-                    child: ChoiceChip(
-                      label: Text(
-                        '$s  ${s == 'All' ? store.novels.length : store.novels.where((n) => n.shelf == s).length}',
-                      ),
-                      selected: _shelf == s,
-                      onSelected: (_) => setState(() => _shelf = s),
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
-        ),
-        Expanded(
-          child: novels.isEmpty
-              ? _empty(
-                  icon: Icons.auto_stories_outlined,
-                  title: store.novels.isEmpty
-                      ? 'Your next story starts here'
-                      : 'No novels here yet',
-                  message: store.novels.isEmpty
-                      ? 'Build a little world of your own. Add a light novel from a supported source, or open an EPUB file you already have.'
-                      : query.isNotEmpty
-                      ? 'Try another title, author, or source.'
-                      : 'Move a novel to this shelf from its detail page.',
-                  action: store.novels.isEmpty ? 'Browse sources' : null,
-                  onAction: () => setState(() => _destination = 3),
-                )
-              : store.grid
-              ? LayoutBuilder(
-                  builder: (context, constraints) {
-                    final columns = constraints.maxWidth < 500
-                        ? 2
-                        : (constraints.maxWidth / 195).floor().clamp(3, 7);
-                    return GridView.builder(
-                      key: const PageStorageKey('library-grid'),
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: columns,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 16,
-                        childAspectRatio: .64,
-                      ),
-                      itemCount: novels.length,
-                      itemBuilder: (context, i) => Semantics(
-                        button: true,
-                        label: 'Open ${novels[i].title}',
-                        child: InkWell(
-                          key: ValueKey(novels[i].url),
-                          borderRadius: BorderRadius.circular(8),
-                          onTap: () => _open(novels[i]),
-                          child: Stack(
-                            fit: StackFit.expand,
+/// The floating, translucent tab bar.
+class _TabBar extends StatelessWidget {
+  const _TabBar({required this.current, required this.onSelect, this.badge});
+  final _Tab current;
+  final ValueChanged<_Tab> onSelect;
+
+  /// A tab showing activity (a small dot), such as Updates while downloading.
+  final _Tab? badge;
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    final bottom = MediaQuery.viewPaddingOf(context).bottom;
+    return GlassBar(
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottom > 0 ? bottom - 6 : 4, top: 4),
+        child: Row(
+          children: [
+            for (final t in _Tab.values)
+              Expanded(
+                child: Semantics(
+                  selected: t == current,
+                  button: true,
+                  label: t.label,
+                  excludeSemantics: true,
+                  child: InkResponse(
+                    onTap: () => onSelect(t),
+                    radius: 36,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 49),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Stack(
+                            clipBehavior: Clip.none,
                             children: [
-                              NovelCover(novel: novels[i], overlay: true),
-                              if (widget.downloads?.statusOf(novels[i].url)
-                                  case final status?)
+                              Icon(
+                                t == current ? t.selectedIcon : t.icon,
+                                size: 25,
+                                color: t == current
+                                    ? p.accent
+                                    : p.secondaryLabel,
+                              ),
+                              if (t == badge)
                                 Positioned(
-                                  top: 8,
-                                  right: 8,
-                                  child: _DownloadBadge(status),
+                                  right: -3,
+                                  top: -1,
+                                  child: Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      color: p.accent,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
                                 ),
                             ],
                           ),
-                        ),
+                          const SizedBox(height: 2),
+                          // Labels keep one line on slim phones.
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              t.label,
+                              maxLines: 1,
+                              style: TextStyles.caption2.copyWith(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w500,
+                                color: t == current
+                                    ? p.accent
+                                    : p.secondaryLabel,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    );
-                  },
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 100),
-                  itemCount: novels.length,
-                  itemBuilder: (context, i) => _novelRow(novels[i]),
-                ),
-        ),
-      ],
-    );
-  }
-
-  Widget _novelRow(LibraryNovel novel, {String? subtitle}) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
-    child: ListTile(
-      minVerticalPadding: 12,
-      leading: SizedBox(width: 44, height: 66, child: NovelCover(novel: novel)),
-      title: Text(novel.title, maxLines: 2, overflow: TextOverflow.ellipsis),
-      subtitle: Padding(
-        padding: const EdgeInsets.only(top: 6),
-        child: Text(
-          subtitle ??
-              [
-                novel.source,
-                novel.shelf,
-                if ((novel.progress ?? 0) > 0.001)
-                  '${(novel.progress! * 100).round()}% read',
-              ].join(' · '),
-        ),
-      ),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () => _open(novel),
-    ),
-  );
-  Widget _updates() => _empty(
-    icon: Icons.new_releases_outlined,
-    title: 'A quiet chapter',
-    message: 'Open a novel and choose Update EPUB to collect new chapters. Automatic update checks will live here.',
-    action: 'Go to library',
-    onAction: () => setState(() => _destination = 0),
-  );
-  Widget _history() {
-    final novels = store.novels.where((n) => n.openedAt != null).toList()
-      ..sort((a, b) => b.openedAt!.compareTo(a.openedAt!));
-    if (novels.isEmpty) {
-      return _empty(
-        icon: Icons.history,
-        title: 'Every story leaves a trail',
-        message: 'Books you open from your library appear here with your reading progress.',
-      );
-    }
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Text(
-            'Recently Opened',
-            style: Theme.of(context).textTheme.labelMedium
-                ?.copyWith(fontWeight: FontWeight.w600),
-          ),
-        ),
-        ...novels.map(
-          (n) => _novelRow(
-            n,
-            subtitle: [
-              n.source,
-              if ((n.progress ?? 0) > 0.001) '${(n.progress! * 100).round()}%',
-              MaterialLocalizations.of(context).formatMediumDate(n.openedAt!),
-            ].join(' · '),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _browse() => Center(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 960),
-      child: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          Text(
-            'Find your next world',
-            style: Theme.of(context).textTheme.headlineMedium
-                ?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Web novels, fan fiction and classics.',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              FilledButton.icon(
-                onPressed: _add,
-                icon: const Icon(Icons.add_link),
-                label: const Text('Add novel URL'),
-              ),
-              OutlinedButton.icon(
-                onPressed: () => importEpub(context, store),
-                icon: const Icon(Icons.file_open_outlined),
-                label: const Text('Open an EPUB file'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 36),
-          Text(
-            'Sources',
-            style: Theme.of(context).textTheme.labelMedium
-                ?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 16),
-          _source(
-            'Royal Road',
-            'Original fiction & web novels',
-            'RR',
-            'https://www.royalroad.com',
-            const Color(0xFFE5B567),
-          ),
-          _source(
-            'Scribble Hub',
-            browserSupported
-                ? 'Original web novels · may ask for a quick human check'
-                : 'Original web novels · needs the Android, iOS or macOS app',
-            'SH',
-            'https://www.scribblehub.com',
-            const Color(0xFF7FB7C9),
-          ),
-          _source(
-            'FanFiction.net',
-            browserSupported
-                ? 'Fan fiction & FictionPress · may ask for a quick human check'
-                : 'Fan fiction · needs the Android, iOS or macOS app',
-            'FF',
-            'https://www.fanfiction.net',
-            const Color(0xFF8FA6D6),
-          ),
-          _source(
-            'AO3',
-            'Archive of Our Own · uses AO3’s own EPUB',
-            'AO3',
-            'https://archiveofourown.org',
-            const Color(0xFFD98C8C),
-          ),
-          _source(
-            'Standard Ebooks',
-            'Free public-domain classics · uses their EPUB',
-            'SE',
-            'https://standardebooks.org',
-            const Color(0xFF9CC58F),
-          ),
-          _source(
-            'RoliaScan',
-            'Translated light novels',
-            'RS',
-            'https://roliascan.com',
-            const Color(0xFFAC9BD1),
-          ),
-          const SizedBox(height: 24),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.info_outline,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 16),
-                  const Expanded(
-                    child: Text(
-                      'Browse a source in your browser, then paste a novel page or any chapter link here. Moonleaf saves it and downloads the chapters. Only publicly accessible text stories are supported.',
-                      style: TextStyle(height: 1.5),
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-  Widget _source(
-    String title,
-    String subtitle,
-    String initials,
-    String url,
-    Color color,
-  ) => Card(
-    margin: const EdgeInsets.only(bottom: 12),
-    child: ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      leading: CircleAvatar(
-        backgroundColor: color.withValues(alpha: .18),
-        child: Text(
-          initials,
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-      subtitle: Text(subtitle),
-      trailing: IconButton(
-        tooltip: 'Browse $title website',
-        icon: const Icon(Icons.open_in_new),
-        onPressed: () => openSource(context, url),
-      ),
-      onTap: () => openSource(context, url),
-    ),
-  );
-  Widget _more() => Center(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 900),
-      child: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          const SizedBox(height: 12),
-          Icon(
-            Icons.auto_stories_rounded,
-            size: 48,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Moonleaf',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.headlineSmall
-                ?.copyWith(fontFamily: 'Fraunces'),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'A home for your light novels',
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 32),
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.palette_outlined),
-                  title: const Text('Appearance'),
-                  subtitle: Text(appearanceLabels[store.appearance]!),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _appearance,
                 ),
-                ListTile(
-                  leading: const Icon(Icons.grid_view),
-                  title: const Text('Library display'),
-                  subtitle: Text(store.grid ? 'Cover grid' : 'Compact list'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _display,
-                ),
-                ListTile(
-                  leading: const Icon(Icons.file_open_outlined),
-                  title: const Text('Open an EPUB file'),
-                  subtitle: const Text('Read any EPUB in the built-in reader'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => importEpub(context, store),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.file_download_outlined),
-                  title: const Text('Create an EPUB'),
-                  subtitle: const Text('Export a novel to read in another app'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _export(),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          ListTile(
-            leading: const Icon(Icons.phone_android_outlined),
-            title: const Text('Your library stays here'),
-            subtitle: const Text(
-              'Saved on this device. No account or cloud sync.',
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.favorite_outline),
-            title: const Text('Inspired by Mihon'),
-            subtitle: const Text('Library, navigation, and detail-page design'),
-            trailing: const Icon(Icons.open_in_new),
-            onTap: () =>
-                openSource(context, 'https://github.com/mihonapp/mihon'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.chrome_reader_mode_outlined),
-            title: const Text('Reader inspired by KOReader'),
-            subtitle: const Text('Typesetting, menus, gestures and statistics'),
-            trailing: const Icon(Icons.open_in_new),
-            onTap: () =>
-                openSource(context, 'https://github.com/koreader/koreader'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.description_outlined),
-            title: const Text('Open-source licenses'),
-            onTap: () =>
-                showLicensePage(context: context, applicationName: 'Moonleaf'),
-          ),
-        ],
-      ),
-    ),
-  );
-  Widget _empty({
-    required IconData icon,
-    required String title,
-    required String message,
-    String? action,
-    VoidCallback? onAction,
-  }) => Center(
-    child: SingleChildScrollView(
-      padding: const EdgeInsets.all(32),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 360),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 96,
-              height: 96,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.secondaryContainer
-                    .withValues(alpha: .5),
-                borderRadius: BorderRadius.circular(32),
-              ),
-              child: Icon(
-                icon,
-                size: 42,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: 28),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                height: 1.6,
-              ),
-            ),
-            if (action != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 28),
-                child: FilledButton(onPressed: onAction, child: Text(action)),
               ),
           ],
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _DownloadBadge extends StatelessWidget {
@@ -850,7 +531,11 @@ class _DownloadBadge extends StatelessWidget {
           shape: BoxShape.circle,
         ),
         child: failed
-            ? const Icon(Icons.error_outline, size: 16, color: Colors.white)
+            ? const Icon(
+                CupertinoIcons.exclamationmark,
+                size: 16,
+                color: Colors.white,
+              )
             : const SizedBox.square(
                 dimension: 16,
                 child: CircularProgressIndicator(

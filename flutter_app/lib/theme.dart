@@ -64,6 +64,26 @@ ThemeData novelTheme(Brightness brightness, {bool ereader = false}) {
     fontFamily: 'DM Sans',
     textTheme: text,
     extensions: [PaletteExtension(p)],
+    // Large-title navigation bars and other Cupertino widgets use the same
+    // font and colors as the rest of the app.
+    cupertinoOverrideTheme: CupertinoThemeData(
+      brightness: brightness,
+      primaryColor: p.accent,
+      barBackgroundColor: p.bar,
+      scaffoldBackgroundColor: p.background,
+      textTheme: CupertinoTextThemeData(
+        primaryColor: p.accent,
+        textStyle: t(TextStyles.body),
+        actionTextStyle: TextStyles.body.copyWith(color: p.accent),
+        navTitleTextStyle: t(TextStyles.headline),
+        navLargeTitleTextStyle: t(TextStyles.largeTitle),
+        navActionTextStyle: TextStyles.body.copyWith(color: p.accent),
+      ),
+    ),
+    actionIconTheme: ActionIconThemeData(
+      backButtonIconBuilder: (_) => const Icon(CupertinoIcons.back),
+      closeButtonIconBuilder: (_) => const Icon(CupertinoIcons.xmark),
+    ),
     scaffoldBackgroundColor: p.background,
     canvasColor: p.background,
     dividerColor: p.separator,

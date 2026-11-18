@@ -2,18 +2,27 @@ import 'package:flutter/material.dart';
 
 import '../data/novel_service.dart';
 import '../data/site_extractors.dart';
+import '../ui/tokens.dart';
 import 'library_store.dart';
 
+/// The Add a Novel sheet: Cancel and Add at the top, a link field below.
+/// Pops with the novel's library address once it's saved.
 class AddNovelDialog extends StatefulWidget {
-  const AddNovelDialog({super.key, required this.store, required this.service});
+  const AddNovelDialog({
+    super.key,
+    required this.store,
+    required this.service,
+    this.initialUrl,
+  });
   final LibraryStore store;
   final NovelService service;
+  final String? initialUrl;
   @override
   State<AddNovelDialog> createState() => _AddNovelDialogState();
 }
 
 class _AddNovelDialogState extends State<AddNovelDialog> {
-  final _url = TextEditingController();
+  late final _url = TextEditingController(text: widget.initialUrl ?? '');
   bool _busy = false;
   String? _error;
   @override
@@ -44,7 +53,7 @@ class _AddNovelDialogState extends State<AddNovelDialog> {
         setState(
           () => _error = e is ApiException
               ? e.message
-              : 'Could not add this novel. Check the URL and try again.',
+              : 'Could not add this novel. Check the link and try again.',
         );
       }
     } finally {
@@ -53,65 +62,90 @@ class _AddNovelDialogState extends State<AddNovelDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => PopScope(
-    canPop: !_busy,
-    child: AlertDialog(
-      title: const Text('Add a light novel'),
-      content: SizedBox(
-        width: 440,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Paste a novel page, or a link to any of its chapters, from a supported site, such as Royal Road, Scribble Hub, FanFiction.net or AO3. Moonleaf adds it to your library and downloads the chapters so you can start reading.',
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                key: const Key('add-novel-url'),
-                controller: _url,
-                autofocus: true,
-                enabled: !_busy,
-                keyboardType: TextInputType.url,
-                onSubmitted: (_) {
-                  if (!_busy) _add();
-                },
-                decoration: const InputDecoration(
-                  labelText: 'Novel or chapter URL',
-                  hintText: 'https://www.royalroad.com/fiction/…',
-                ),
-              ),
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: Text(
-                    _error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    final side = Space.margin(MediaQuery.sizeOf(context).width);
+    return PopScope(
+      canPop: !_busy,
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(side, 0, side, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Cancel on the leading edge, the main action trailing.
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: _busy ? null : () => Navigator.pop(context),
+                      child: const Text('Cancel'),
                     ),
+                    Expanded(
+                      child: Text(
+                        'Add a Novel',
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyles.headline.copyWith(color: p.label),
+                      ),
+                    ),
+                    _busy
+                        ? const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 14),
+                            child: SizedBox.square(
+                              dimension: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : TextButton(
+                            onPressed: _add,
+                            child: Text(
+                              'Add',
+                              style: TextStyles.headline.copyWith(
+                                color: p.accent,
+                              ),
+                            ),
+                          ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  key: const Key('add-novel-url'),
+                  controller: _url,
+                  autofocus: true,
+                  enabled: !_busy,
+                  keyboardType: TextInputType.url,
+                  textInputAction: TextInputAction.go,
+                  onSubmitted: (_) {
+                    if (!_busy) _add();
+                  },
+                  decoration: const InputDecoration(
+                    labelText: 'Novel or chapter URL',
+                    hintText: 'https://www.royalroad.com/fiction/…',
                   ),
                 ),
-            ],
+                const SizedBox(height: 12),
+                Text(
+                  _error ??
+                      'Paste a story page, or a link to any of its chapters, '
+                          'from Royal Road, Scribble Hub, FanFiction.net, AO3, '
+                          'Standard Ebooks or RoliaScan. Moonleaf adds it to '
+                          'your library and downloads the chapters.',
+                  style: TextStyles.footnote.copyWith(
+                    color: _error == null ? p.secondaryLabel : p.destructive,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _busy ? null : () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: _busy ? null : _add,
-          child: _busy
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Add to library'),
-        ),
-      ],
-    ),
-  );
+    );
+  }
 }

@@ -84,15 +84,16 @@ Future<LibraryNovel?> keepEpub(
   LibraryStore store,
   String url,
   BookMetadata metadata,
-  List<int> bytes,
-) async {
+  List<int> bytes, {
+  int? chapters,
+}) async {
   final canonical = LibraryStore.canonical(url);
   final key = await saveBook(
     'web-${bookFingerprint(canonical.codeUnits)}',
     bytes is Uint8List ? bytes : Uint8List.fromList(bytes),
   );
   _chapters.remove(key);
-  await store.attachEpub(canonical, key, metadata);
+  await store.attachEpub(canonical, key, metadata, chapters: chapters);
   return store.find(canonical);
 }
 

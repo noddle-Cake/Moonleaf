@@ -143,7 +143,7 @@ void main() {
     );
     expect(find.text('Novel or chapter URL'), findsOneWidget);
     await tester.enterText(find.byKey(const Key('add-novel-url')), chapter);
-    await tester.tap(find.text('Add to library'));
+    await tester.tap(find.text('Add'));
     await tester.runAsync(
       () => Future.delayed(const Duration(milliseconds: 50)),
     );

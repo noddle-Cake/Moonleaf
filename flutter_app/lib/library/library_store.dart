@@ -24,6 +24,9 @@ class LibraryNovel {
     this.epub,
     this.coverFile,
     this.progress,
+    this.chapterCount,
+    this.newChapters = 0,
+    this.updatedAt,
   });
   final String url, title, author, firstChapter, shelf;
   final String? coverUrl, description;
@@ -38,6 +41,13 @@ class LibraryNovel {
 
   /// Reading progress from 0 to 1, once the book has been opened.
   final double? progress;
+
+  /// Chapters in the kept book, and how many the last update added.
+  final int? chapterCount;
+  final int newChapters;
+
+  /// When the kept book was last downloaded or updated.
+  final DateTime? updatedAt;
 
   /// Imported EPUB files use `epub:` identifiers instead of web addresses.
   bool get isLocal => url.startsWith('epub:');
@@ -62,6 +72,9 @@ class LibraryNovel {
     DateTime? openedAt,
     String? epub,
     double? progress,
+    int? chapterCount,
+    int? newChapters,
+    DateTime? updatedAt,
   }) => LibraryNovel(
     url: url,
     title: title,
@@ -75,6 +88,9 @@ class LibraryNovel {
     epub: epub ?? this.epub,
     coverFile: coverFile,
     progress: progress ?? this.progress,
+    chapterCount: chapterCount ?? this.chapterCount,
+    newChapters: newChapters ?? this.newChapters,
+    updatedAt: updatedAt ?? this.updatedAt,
   );
   Map<String, dynamic> toJson() => {
     'url': url,
@@ -89,6 +105,9 @@ class LibraryNovel {
     'epub': epub,
     'coverFile': coverFile,
     'progress': progress,
+    'chapterCount': chapterCount,
+    'newChapters': newChapters,
+    'updatedAt': updatedAt?.toIso8601String(),
   };
   factory LibraryNovel.fromJson(Map<String, dynamic> value) => LibraryNovel(
     url: value['url'] as String,
@@ -105,6 +124,9 @@ class LibraryNovel {
     epub: value['epub'] as String?,
     coverFile: value['coverFile'] as String?,
     progress: (value['progress'] as num?)?.toDouble(),
+    chapterCount: value['chapterCount'] as int?,
+    newChapters: value['newChapters'] as int? ?? 0,
+    updatedAt: DateTime.tryParse(value['updatedAt'] as String? ?? ''),
   );
 }
 
@@ -222,28 +244,44 @@ class LibraryStore extends ChangeNotifier {
 
   /// Keeps an app copy of a web novel's EPUB for the reader, adding the novel
   /// to the library first if needed.
-  Future<void> attachEpub(String url, String key, BookMetadata metadata) =>
-      _change(() {
-        final canonical = LibraryStore.canonical(url);
-        final index = _novels.indexWhere((n) => n.url == canonical);
-        if (index < 0) {
-          _novels.add(
-            LibraryNovel(
-              url: canonical,
-              title: metadata.title.isEmpty ? 'Untitled novel' : metadata.title,
-              author: metadata.author,
-              firstChapter: metadata.firstChapter,
-              addedAt: DateTime.now(),
-              coverUrl: metadata.coverUrl,
-              description: metadata.description,
-              shelf: 'Reading',
-              epub: key,
-            ),
-          );
-        } else {
-          _novels[index] = _novels[index].copyWith(epub: key);
-        }
-      });
+  Future<void> attachEpub(
+    String url,
+    String key,
+    BookMetadata metadata, {
+    int? chapters,
+  }) => _change(() {
+    final canonical = LibraryStore.canonical(url);
+    final index = _novels.indexWhere((n) => n.url == canonical);
+    if (index < 0) {
+      _novels.add(
+        LibraryNovel(
+          url: canonical,
+          title: metadata.title.isEmpty ? 'Untitled novel' : metadata.title,
+          author: metadata.author,
+          firstChapter: metadata.firstChapter,
+          addedAt: DateTime.now(),
+          coverUrl: metadata.coverUrl,
+          description: metadata.description,
+          shelf: 'Reading',
+          epub: key,
+          chapterCount: chapters,
+          updatedAt: DateTime.now(),
+        ),
+      );
+    } else {
+      final old = _novels[index];
+      final before = old.epub == null ? null : old.chapterCount;
+      _novels[index] = old.copyWith(
+        epub: key,
+        chapterCount: chapters,
+        // Only count chapters added by an update of an existing book.
+        newChapters: before != null && chapters != null && chapters > before
+            ? chapters - before
+            : 0,
+        updatedAt: DateTime.now(),
+      );
+    }
+  });
 
   Future<void> setProgress(String url, double progress) => _change(
     () => _novels = _novels

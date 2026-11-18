@@ -31,6 +31,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/icon.png
     - assets/fonts/Fraunces-LICENSE.txt
     - assets/fonts/DMSans-LICENSE.txt
   fonts:

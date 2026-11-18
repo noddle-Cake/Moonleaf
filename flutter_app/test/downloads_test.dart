@@ -82,8 +82,8 @@ void main() {
       service: service,
       poll: Duration.zero,
       fetchCovers: false,
-      keep: (store, url, metadata, bytes) async {
-        kept[url] = bytes.length;
+      keep: (store, url, metadata, bytes, {chapters}) async {
+        kept[url] = chapters ?? -1;
         return null;
       },
     );
@@ -104,7 +104,7 @@ void main() {
     }
     expect(service.started, [a.url, b.url]);
     expect(service.maxActive, 1);
-    expect(kept, {a.url: 2, b.url: 2});
+    expect(kept, {a.url: 3, b.url: 3});
     expect(seen, containsAllInOrder(['Chapter 1', 'Chapter 2', 'Chapter 3']));
     expect(downloads.statusOf(a.url), isNull);
   });
@@ -118,7 +118,7 @@ void main() {
       service: service,
       poll: Duration.zero,
       fetchCovers: false,
-      keep: (_, _, _, _) async => null,
+      keep: (_, _, _, _, {chapters}) async => null,
     );
     addTearDown(downloads.dispose);
     downloads.enqueue(a.url);
@@ -140,7 +140,7 @@ void main() {
       service: FakeService(),
       poll: Duration.zero,
       fetchCovers: false,
-      keep: (_, _, _, _) async => null,
+      keep: (_, _, _, _, {chapters}) async => null,
     );
     addTearDown(downloads.dispose);
     downloads.enqueue(a.url);

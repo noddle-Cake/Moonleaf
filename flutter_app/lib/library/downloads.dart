@@ -43,8 +43,9 @@ class DownloadManager extends ChangeNotifier {
     LibraryStore store,
     String url,
     BookMetadata metadata,
-    List<int> bytes,
-  )
+    List<int> bytes, {
+    int? chapters,
+  })
   keep;
   final LibraryStore store;
   final NovelService service;
@@ -60,6 +61,19 @@ class DownloadManager extends ChangeNotifier {
 
   DownloadStatus? statusOf(String url) => _status[url];
   bool get busy => _running != null || _queue.isNotEmpty;
+
+  /// Queues every novel from a website that has a kept book, to collect new
+  /// chapters.
+  int checkAll() {
+    var queued = 0;
+    for (final n in store.novels) {
+      if (!n.isLocal && n.epub != null && !(_status[n.url]?.active ?? false)) {
+        enqueue(n.url);
+        queued++;
+      }
+    }
+    return queued;
+  }
 
   /// Queues a novel. Already queued or running novels are left alone.
   void enqueue(String url) {
@@ -126,10 +140,14 @@ class DownloadManager extends ChangeNotifier {
       cover: cover,
     );
     _jobId = id;
+    var chapters = 0;
     while (!_disposed) {
       final job = await service.job(id);
       if (_disposed) return;
-      if (job.status == 'complete') break;
+      if (job.status == 'complete') {
+        chapters = job.chapters;
+        break;
+      }
       if (!job.active) {
         throw ApiException(
           job.status == 'cancelled'
@@ -148,7 +166,13 @@ class DownloadManager extends ChangeNotifier {
     if (_disposed) return;
     final bytes = await service.download(id);
     if (_disposed) return;
-    await keep(store, url, novel.metadata, bytes);
+    await keep(
+      store,
+      url,
+      novel.metadata,
+      bytes,
+      chapters: chapters > 0 ? chapters : null,
+    );
   }
 
   /// The source cover as PNG or JPEG bytes, or null. Other formats (such as
