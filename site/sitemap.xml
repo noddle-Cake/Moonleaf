@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <url>
+    <loc>https://moonleaf.cjservin.com/</loc>
+    <lastmod>2026-11-17</lastmod>
+    <image:image><image:loc>https://moonleaf.cjservin.com/assets/img/og.png</image:loc></image:image>
+    <image:image><image:loc>https://moonleaf.cjservin.com/assets/screens/reader-night-typeset.webp</image:loc></image:image>
+    <image:image><image:loc>https://moonleaf.cjservin.com/assets/screens/reader-sepia-menu.webp</image:loc></image:image>
+    <image:image><image:loc>https://moonleaf.cjservin.com/assets/screens/reader-eink-contents.webp</image:loc></image:image>
+    <image:image><image:loc>https://moonleaf.cjservin.com/assets/screens/reader-paper-highlight.webp</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://moonleaf.cjservin.com/download/</loc>
+    <lastmod>2026-11-17</lastmod>
+  </url>
+  <url>
+    <loc>https://moonleaf.cjservin.com/privacy/</loc>
+    <lastmod>2026-11-17</lastmod>
+  </url>
+</urlset>

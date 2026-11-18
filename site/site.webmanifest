@@ -1,0 +1,13 @@
+{
+  "name": "Moonleaf",
+  "short_name": "Moonleaf",
+  "description": "Free Android app for saving web novels as EPUB and reading them in a built-in reader.",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#f6f5ef",
+  "theme_color": "#193e36",
+  "icons": [
+    { "src": "/assets/img/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/assets/img/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
