@@ -10,6 +10,11 @@ See the [repository README](../README.md) for setup and builds.
 - `DESIGN.md`: Mihon and KOReader design references and reader architecture.
 - `lib/reader/`: EPUB parsing, typesetting/pagination, and the reader UI.
 - `lib/library/reading.dart`: keeping, importing, and opening books.
+- `lib/library/downloads.dart`: background downloads of added novels.
+- `lib/browser/browser_loader.dart`: in-app browser for sites with a human
+  check (Scribble Hub, FanFiction.net); Android, iOS and macOS.
+- `integration_test/browser_live_test.dart`: opt-in live check of that browser
+  (`--dart-define=LIVE_URL=…`).
 - `lib/data/novel_service.dart`: shared models and service interface.
 - `lib/data/local_novel_service.dart`: native fetching, progress, cancellation.
 - `lib/data/site_extractors.dart`: pure site parsers and navigation guards.

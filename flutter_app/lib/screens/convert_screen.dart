@@ -103,7 +103,9 @@ class _ConvertScreenState extends State<ConvertScreen> {
 
   Future<void> _detect() async {
     if (_validUrl(_url.text) != null) {
-      setState(() => _error = 'Paste the novel’s homepage URL to get started.');
+      setState(
+        () => _error = 'Paste a novel page or chapter link to get started.',
+      );
       return;
     }
     FocusManager.instance.primaryFocus?.unfocus();
@@ -116,6 +118,8 @@ class _ConvertScreenState extends State<ConvertScreen> {
       if (!mounted) return;
       setState(() {
         _metadata = metadata;
+        // A chapter link becomes its novel's page; the book starts at chapter 1.
+        if (metadata.url.isNotEmpty) _url.text = metadata.url;
         _title.text = metadata.title;
         _author.text = metadata.author;
         _chapter.text = metadata.firstChapter;
@@ -452,8 +456,8 @@ class _ConvertScreenState extends State<ConvertScreen> {
                     validator: _validUrl,
                     keyboardType: TextInputType.url,
                     decoration: const InputDecoration(
-                      labelText: 'Novel URL',
-                      hintText: 'Paste a Royal Road or RoliaScan novel page',
+                      labelText: 'Novel or chapter URL',
+                      hintText: 'A novel or chapter link from a supported site',
                     ),
                     onChanged: (_) => setState(() {
                       _metadata = null;

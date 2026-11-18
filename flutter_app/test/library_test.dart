@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:novel_to_epub/library/library_store.dart';
+import 'package:novel_to_epub/reader/epub_document.dart';
+import 'package:novel_to_epub/reader/reader_settings.dart';
 import 'package:novel_to_epub/library/novel_detail_screen.dart';
 import 'package:novel_to_epub/main.dart';
 import 'package:novel_to_epub/data/novel_service.dart';
@@ -77,7 +79,9 @@ void main() {
     final store = LibraryStore();
     final api = fakeApi();
     addTearDown(api.close);
-    await tester.pumpWidget(NovelApp(store: store, service: api));
+    await tester.pumpWidget(
+      NovelApp(store: store, service: api, autoDownload: false),
+    );
     await tester.tap(find.text('Browse sources'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Add novel URL'));
@@ -89,16 +93,16 @@ void main() {
     await tester.tap(find.text('Add to library'));
     await tester.pumpAndSettle();
     expect(store.novels.single.title, 'A Sample Novel');
-    await tester.tap(find.byKey(ValueKey(store.novels.single.url)));
-    await tester.pumpAndSettle();
+    // Adding opens the novel's page straight away.
     expect(find.byType(NovelDetailScreen), findsOneWidget);
-    expect(find.text('Synopsis'), findsOneWidget);
-    await tester.tap(find.text('Change shelf'));
+    expect(find.text('A story to take with you.'), findsOneWidget);
+    // The shelf chip under the title moves the novel between shelves.
+    await tester.tap(find.widgetWithText(ActionChip, 'Plan to read'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Reading').last);
     await tester.pumpAndSettle();
     expect(store.novels.single.shelf, 'Reading');
-    await tester.tap(find.text('Create EPUB'));
+    await tester.tap(find.byKey(const Key('download-novel')));
     await tester.pumpAndSettle();
     expect(
       tester
@@ -213,22 +217,43 @@ void main() {
     expect(reloaded.novels.single.epub, 'web-sample.epub');
     expect(reloaded.novels.single.progress, .4);
     reloaded.dispose();
-    LibraryNovel? read;
+    // The reader stopped in the second chapter.
+    await (BookState(url)
+          ..chapter = 2
+          ..offset = 10
+          ..progress = .4)
+        .save();
+    final opened = <(String, int?, int?)>[];
     await tester.pumpWidget(
       MaterialApp(
         home: NovelDetailScreen(
           url: url,
           store: store,
           onExport: (_) {},
-          onRead: (n) => read = n,
+          chapters: (_) async => const [
+            TocEntry('Chapter 1: Prologue', 1, 0, 0),
+            TocEntry('Chapter 2: The Bell', 2, 0, 0),
+            TocEntry('Chapter 3: Night Ferry', 3, 0, 0),
+          ],
+          onRead: (n, {chapter, offset}) async =>
+              opened.add((n.url, chapter, offset)),
         ),
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Update EPUB'), findsOneWidget);
-    expect(find.text('40.0% read'), findsOneWidget);
-    await tester.tap(find.text('Continue reading · 40%'));
-    expect(read?.url, url);
+    expect(find.text('3 chapters'), findsOneWidget);
+    expect(find.text('Resume'), findsOneWidget);
+    expect(find.widgetWithText(ListTile, 'Reading'), findsOneWidget);
+    // Newest first, like Mihon; the sort button flips it.
+    double y(String t) => tester.getTopLeft(find.text(t)).dy;
+    expect(y('Chapter 3: Night Ferry'), lessThan(y('Chapter 1: Prologue')));
+    await tester.tap(find.byTooltip('Show oldest first'));
+    await tester.pumpAndSettle();
+    expect(y('Chapter 1: Prologue'), lessThan(y('Chapter 3: Night Ferry')));
+    await tester.tap(find.text('Chapter 3: Night Ferry'));
+    await tester.tap(find.text('Resume'));
+    await tester.pumpAndSettle();
+    expect(opened, [(url, 3, 0), (url, null, null)]);
     await store.addLocal(
       LibraryNovel(
         url: 'epub:abc',

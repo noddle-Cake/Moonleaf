@@ -32,8 +32,13 @@ class _AddNovelDialogState extends State<AddNovelDialog> {
       extractorFor(Uri.parse(url));
       final metadata = await widget.service.detect(url);
       if (!mounted) return;
-      await widget.store.add(url, metadata);
-      if (mounted) Navigator.pop(context, true);
+      // A chapter link is saved under its novel's main page.
+      final saved = metadata.url.isEmpty ? url : metadata.url;
+      await widget.store.add(saved, metadata);
+      // Return the library key so the caller can open and download it.
+      if (mounted) {
+        Navigator.pop(context, widget.store.find(saved)?.url ?? saved);
+      }
     } catch (e) {
       if (mounted) {
         setState(
@@ -60,7 +65,7 @@ class _AddNovelDialogState extends State<AddNovelDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Paste a novel page from Royal Road or RoliaScan. Its details will be saved in your library.',
+                'Paste a novel page, or a link to any of its chapters, from a supported site, such as Royal Road, Scribble Hub, FanFiction.net or AO3. Moonleaf adds it to your library and downloads the chapters so you can start reading.',
               ),
               const SizedBox(height: 20),
               TextField(
@@ -73,8 +78,8 @@ class _AddNovelDialogState extends State<AddNovelDialog> {
                   if (!_busy) _add();
                 },
                 decoration: const InputDecoration(
-                  labelText: 'Novel URL',
-                  hintText: 'https://roliascan.com/manga/…',
+                  labelText: 'Novel or chapter URL',
+                  hintText: 'https://www.royalroad.com/fiction/…',
                 ),
               ),
               if (_error != null)

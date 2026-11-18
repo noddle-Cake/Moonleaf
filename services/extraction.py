@@ -3,6 +3,7 @@ from urllib.parse import urldefrag
 
 from extractors.base import ExtractionError
 from extractors.registry import get_extractor
+from services.chapter_titles import clean_chapter_title
 from services.epub_builder import EpubBuilder
 
 
@@ -27,6 +28,8 @@ class ExtractionService:
 
         check_cancelled()
         extractor = self.extractor_factory(url)
+        if extractor.official_epub:
+            return self._official_epub(extractor, chapter_url or url, progress_callback, check_cancelled)
         if cover_bytes is None:
             cover_url = extractor.get_book_metadata(url).get("cover_url")
             if cover_url:
@@ -45,10 +48,35 @@ class ExtractionService:
             visited.add(next_url)
             chapter = extractor.get_chapter(next_url, count)
             check_cancelled()
-            builder.add_chapter(chapter.title, chapter.html, count)
+            name = clean_chapter_title(chapter.title, title, count)
+            builder.add_chapter(name, chapter.html, count)
             if progress_callback:
-                progress_callback(count, chapter.title)
+                progress_callback(count, name)
             next_url = chapter.next_url
             count += 1
         check_cancelled()
         return builder.finalize()
+
+    @staticmethod
+    def _official_epub(extractor, url, progress_callback, check_cancelled) -> bytes:
+        """Download the site's own EPUB for the book."""
+        from io import BytesIO
+        from zipfile import BadZipFile, ZipFile
+
+        from bs4 import BeautifulSoup
+
+        page = extractor.fetch(extractor.fetch_url(url))
+        link = extractor.epub_link(BeautifulSoup(page.content, "html.parser"), page.url)
+        if not link or not extractor.supports(link):
+            raise ExtractionError("The site didn't offer an EPUB for this book.")
+        check_cancelled()
+        data = extractor.fetch_file(link)
+        try:
+            with ZipFile(BytesIO(data)) as archive:
+                if not archive.read("mimetype").startswith(b"application/epub+zip"):
+                    raise ExtractionError("The site sent a file that isn't an EPUB.")
+        except (BadZipFile, KeyError) as exc:
+            raise ExtractionError("The site sent a file that isn't an EPUB.") from exc
+        if progress_callback:
+            progress_callback(1, "Downloaded the EPUB")
+        return data

@@ -1,11 +1,30 @@
 # Moonleaf
 
 Convert supported web novels to EPUB while preserving chapter formatting.
-Currently supports Royal Road and RoliaScan text novels.
 
-For RoliaScan, paste the landing-page URL of a novel you choose.
-The extractor reads the first-chapter button and follows explicit next links;
-the dynamically loaded chapter list is not needed. Image-only manga and pages
+| Source | How Moonleaf gets the book |
+|---|---|
+| Royal Road | Follows the chapters |
+| Scribble Hub | Follows the chapters in the app's built-in browser |
+| FanFiction.net / FictionPress | Follows the chapters in the app's built-in browser |
+| AO3 (Archive of Our Own) | Downloads AO3's own EPUB of the work |
+| Standard Ebooks | Downloads the book's compatible EPUB |
+| RoliaScan | Follows the chapters |
+
+Scribble Hub and FanFiction.net ask every visitor to pass a human check
+(Cloudflare), so plain requests are blocked. The Android, iOS and macOS apps
+load their pages in a hidden WebView instead. If a check doesn't pass on its
+own, the app shows it so you can complete it, then keeps downloading at a
+gentle pace (one page every 1.5 seconds). The web client and Python API can't
+show the check, so they explain that these sites need the app. AO3 works that
+only signed-in members can see can't be downloaded. Wattpad isn't supported
+because its terms of service prohibit scraping.
+
+Paste a novel's main page, or a link to any of its chapters. A chapter link
+finds its novel and downloads the whole book from chapter 1. Royal Road chapter
+addresses contain the novel's address; RoliaScan chapter pages link it in their
+breadcrumbs. The extractor reads the first-chapter link and follows explicit
+next links, so the dynamically loaded chapter list is not needed. Image-only manga and pages
 without accessible novel text raise an error.
 
 ## Download for Android
@@ -30,8 +49,15 @@ be run manually from GitHub Actions on `master`.
 
 The Flutter app uses a Mihon-inspired library layout with cover grids or lists,
 search, sorting, and **Plan to read / Reading / Completed** shelves. Add a novel
-from **Browse → Add novel URL**, open its details, and choose **Create EPUB**.
-**More → Create an EPUB** also opens the standalone export tool.
+from **Browse → Add novel URL** (a novel page or any chapter link): Moonleaf
+opens its page and downloads the chapters in the background, so the book is
+ready to read without a separate export step. Like Mihon, the novel page lists
+its chapters, newest first by default, dims the ones you've read, and marks
+where you are. Tap a chapter to open it, or **Start / Resume**. Chapter names
+are tidied to **Chapter N: Name**, dropping the book title when a site repeats
+it. **Check for new chapters**, **Save EPUB file**, and **Customize EPUB…** are
+in the novel page menu, and **More → Create an EPUB** opens the standalone
+export tool.
 
 Library metadata, shelves, recently opened novels, reading progress, and
 appearance preferences are saved locally. Automatic update checking is planned;
@@ -43,9 +69,9 @@ installed.
 Moonleaf includes a KOReader-inspired EPUB reader, so the app covers finding,
 downloading, and reading a novel:
 
-- When an EPUB finishes building, a copy is kept with the novel. Choose
-  **Read now**, or **Start/Continue reading** on the novel's page. **Save EPUB
-  file** still exports it for other apps.
+- Added novels download automatically and are kept with the novel. Open any
+  chapter from the novel's page, or use **Start / Resume**. **Save EPUB file**
+  exports it for other apps.
 - **Open an EPUB file** (library toolbar, Browse, or More) imports any EPUB on
   the device into the library and opens it.
 - Paginated or continuous view, with instant, slide, or fade page turns.

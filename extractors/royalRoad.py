@@ -1,10 +1,39 @@
 import json
+from urllib.parse import urlsplit, urlunsplit
 
 from .base import BaseExtractor, Chapter, ExtractionError
 
 
 class RoyalRoadExtractor(BaseExtractor):
     hosts = ("royalroad.com", "www.royalroad.com")
+
+    def is_chapter(self, url):
+        parts = self.segments(url)
+        return bool(parts) and parts[0] == "fiction" and "chapter" in parts
+
+    def novel_url_from_path(self, url):
+        """/fiction/<id>/<slug>/chapter/<id>/<slug> -> /fiction/<id>/<slug>."""
+        parts = self.segments(url)
+        at = parts.index("chapter") if "chapter" in parts else -1
+        if at < 2 or not parts[1].isdigit():
+            return None
+        split = urlsplit(url)
+        return urlunsplit((split.scheme, split.netloc, "/" + "/".join(parts[:at]), "", ""))
+
+    def novel_url_from_chapter(self, soup, url):
+        """Short links like /fiction/chapter/<id> name only the chapter."""
+        for tag, attr in (('link[rel="canonical"]', "href"), ('meta[property="og:url"]', "content")):
+            found = soup.select_one(tag)
+            full = self.link(url, found.get(attr) if found else None)
+            novel = self.novel_url_from_path(full) if full else None
+            if novel:
+                return novel
+        for a in soup.select('a[href^="/fiction/"]'):
+            link = self.link(url, a.get("href"))
+            parts = self.segments(link) if link else []
+            if len(parts) >= 2 and parts[1].isdigit() and "chapter" not in parts:
+                return link
+        return None
 
     def parse_book(self, soup, url):
         data = {}

@@ -1,10 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:archive/archive.dart';
 import 'package:http/http.dart' as http;
 
+import 'chapter_titles.dart';
 import 'epub_writer.dart';
 import 'novel_service.dart';
+import 'page_loader.dart';
 import 'site_extractors.dart';
 
 class _LocalJob {
@@ -27,14 +31,35 @@ class _LocalJob {
 
 /// Installed apps fetch and package books on the device. No API server is used.
 class LocalNovelService implements NovelService {
-  LocalNovelService({http.Client? client}) : _client = client ?? http.Client();
+  LocalNovelService({http.Client? client, this.browser, this.politeDelay})
+    : _client = client ?? http.Client();
   final http.Client _client;
+
+  /// Loads pages for sites with a human check. Without it those sites
+  /// report that they need the app's built-in browser.
+  final PageLoader? browser;
+
+  /// Pause between chapter pages loaded in the browser, to read at a gentle
+  /// pace. Defaults to 1.5 seconds.
+  final Duration? politeDelay;
   final _jobs = <String, _LocalJob>{};
   int _sequence = 0;
   bool _closed = false;
 
   Future<String> _fetch(Uri uri) async {
-    extractorFor(uri);
+    final parser = extractorFor(uri);
+    uri = parser.fetchUrl(uri);
+    if (parser.needsBrowser) {
+      final loader = browser;
+      if (loader == null) {
+        throw ApiException(
+          '${parser.name} asks visitors to confirm they’re human, so it needs '
+          'Moonleaf’s built-in browser. It’s available in the Android, iOS and '
+          'macOS apps.',
+        );
+      }
+      return loader.load(uri);
+    }
     try {
       final response = await _client
           .get(uri)
@@ -58,9 +83,24 @@ class LocalNovelService implements NovelService {
 
   @override
   Future<BookMetadata> detect(String url) async {
-    final uri = Uri.parse(url);
+    var uri = Uri.parse(url.trim()).removeFragment();
     final parser = extractorFor(uri);
-    final metadata = parser.book(await _fetch(uri), uri);
+    // A chapter link works too: find its novel and download from chapter 1.
+    if (parser.isChapter(uri)) {
+      final novel =
+          parser.novelFromPath(uri) ??
+          parser.novelFromChapter(await _fetch(uri), uri);
+      if (novel == null || parser.isChapter(novel)) {
+        throw const ApiException(
+          "Couldn't find the novel page for this chapter. Paste the novel's main page instead.",
+        );
+      }
+      extractorFor(novel);
+      uri = novel;
+    }
+    final metadata = parser
+        .book(await _fetch(uri), uri)
+        .withUrl(uri.toString());
     if (metadata.firstChapter.isNotEmpty) {
       final first = Uri.parse(metadata.firstChapter);
       if (extractorFor(first).runtimeType != parser.runtimeType ||
@@ -99,8 +139,86 @@ class LocalNovelService implements NovelService {
     _jobs.clear();
     final job = _LocalJob('local-${++_sequence}');
     _jobs[job.id] = job;
-    unawaited(_run(job, parser, first, title, author, cover));
+    unawaited(
+      parser.officialEpub
+          ? _runOfficial(job, parser, first)
+          : _run(job, parser, first, title, author, cover),
+    );
     return job.id;
+  }
+
+  /// Sites that publish their own EPUB: download that file as the book.
+  Future<void> _runOfficial(
+    _LocalJob job,
+    SiteExtractor parser,
+    Uri page,
+  ) async {
+    job.status = 'running';
+    try {
+      final link = parser.epubLink(await _fetch(page), page);
+      if (link == null ||
+          extractorFor(link).runtimeType != parser.runtimeType) {
+        throw ApiException(
+          '${parser.name} didn’t offer an EPUB for this book.',
+        );
+      }
+      job.title = 'Downloading the EPUB';
+      final bytes = await _fetchFile(link);
+      if (_closed || job.cancelled) return;
+      final archive = ZipDecoder().decodeBytes(bytes);
+      final mime = archive.findFile('mimetype');
+      if (mime == null ||
+          !utf8
+              .decode(mime.content as List<int>)
+              .startsWith('application/epub+zip')) {
+        throw ApiException('${parser.name} sent a file that isn’t an EPUB.');
+      }
+      job.chapters = archive.files
+          .where((f) => RegExp(r'\.x?html?$').hasMatch(f.name))
+          .length;
+      job.bytes = bytes;
+      job.status = 'complete';
+    } catch (error) {
+      if (_closed || job.cancelled) return;
+      job.error = error is ApiException
+          ? error.message
+          : 'Could not download this book: $error';
+      job.status = 'failed';
+    }
+  }
+
+  /// Downloads a file, following an HTML "your download is starting" page.
+  Future<Uint8List> _fetchFile(Uri uri) async {
+    for (var hop = 0; hop < 3; hop++) {
+      extractorFor(uri);
+      final http.Response response;
+      try {
+        response = await _client.get(uri).timeout(const Duration(seconds: 90));
+      } on TimeoutException {
+        throw const ApiException('The download took too long. Try again.');
+      } on http.ClientException {
+        throw const ApiException(
+          'Cannot reach the site. Check your internet connection.',
+        );
+      }
+      if (response.statusCode != 200) {
+        throw ApiException(
+          'The site returned HTTP ${response.statusCode} for the EPUB. Try again later.',
+        );
+      }
+      final type = response.headers['content-type'] ?? '';
+      if (!type.contains('html')) return response.bodyBytes;
+      final refresh = RegExp(
+        r'''http-equiv=["']refresh["'][^>]*url=([^"'>\s]+)''',
+        caseSensitive: false,
+      ).firstMatch(response.body);
+      final next = refresh == null
+          ? null
+          : resolveLink(uri, refresh[1]!.replaceAll('&amp;', '&'));
+      if (next == null) break;
+      uri = next;
+    }
+    throw const ApiException('The site sent a web page instead of the EPUB.');
   }
 
   Future<void> _run(
@@ -128,18 +246,33 @@ class LocalNovelService implements NovelService {
             'The site has a repeated chapter link. Extraction stopped to avoid a loop.',
           );
         }
+        if (parser.needsBrowser && chapters.isNotEmpty) {
+          await Future<void>.delayed(
+            politeDelay ?? const Duration(milliseconds: 1500),
+          );
+          if (_closed || job.cancelled) return;
+        }
         final source = await _fetch(current);
         if (_closed || job.cancelled) return;
         final chapter = parser.chapter(source, current, chapters.length + 1);
         chapters.add(chapter);
         job.chapters = chapters.length;
-        job.title = chapter.title;
+        job.title = cleanChapterTitle(chapter.title, title, chapters.length);
         current = chapter.next;
       }
       if (_closed || job.cancelled) return;
+      final named = [
+        for (var i = 0; i < chapters.length; i++)
+          NovelChapter(
+            cleanChapterTitle(chapters[i].title, title, i + 1),
+            chapters[i].content,
+            chapters[i].url,
+            chapters[i].next,
+          ),
+      ];
       final bytes = await compute(
         buildEpub,
-        EpubBook(title, author, chapters, cover),
+        EpubBook(title, author, named, cover),
       );
       if (_closed || job.cancelled) return;
       job.bytes = bytes;
