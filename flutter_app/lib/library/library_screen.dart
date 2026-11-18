@@ -660,8 +660,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ListTile(
             leading: const Icon(Icons.description_outlined),
             title: const Text('Open-source licenses'),
-            onTap: () =>
-                showLicensePage(context: context, applicationName: 'Moonleaf'),
+            onTap: () => showLicensePage(
+              context: context,
+              applicationName: 'Moonleaf',
+            ),
           ),
         ],
       ),
