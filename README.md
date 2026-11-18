@@ -3,9 +3,11 @@
 Convert supported web novels to EPUB while preserving chapter formatting.
 Currently supports Royal Road and RoliaScan text novels.
 
-For RoliaScan, paste the landing-page URL of a novel you choose.
-The extractor reads the first-chapter button and follows explicit next links;
-the dynamically loaded chapter list is not needed. Image-only manga and pages
+Paste a novel's main page, or a link to any of its chapters. A chapter link
+finds its novel and downloads the whole book from chapter 1. Royal Road chapter
+addresses contain the novel's address; RoliaScan chapter pages link it in their
+breadcrumbs. The extractor reads the first-chapter link and follows explicit
+next links, so the dynamically loaded chapter list is not needed. Image-only manga and pages
 without accessible novel text raise an error.
 
 ## Download for Android

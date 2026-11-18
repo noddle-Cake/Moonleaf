@@ -58,9 +58,24 @@ class LocalNovelService implements NovelService {
 
   @override
   Future<BookMetadata> detect(String url) async {
-    final uri = Uri.parse(url);
+    var uri = Uri.parse(url.trim()).removeFragment();
     final parser = extractorFor(uri);
-    final metadata = parser.book(await _fetch(uri), uri);
+    // A chapter link works too: find its novel and download from chapter 1.
+    if (parser.isChapter(uri)) {
+      final novel =
+          parser.novelFromPath(uri) ??
+          parser.novelFromChapter(await _fetch(uri), uri);
+      if (novel == null || parser.isChapter(novel)) {
+        throw const ApiException(
+          "Couldn't find the novel page for this chapter. Paste the novel's main page instead.",
+        );
+      }
+      extractorFor(novel);
+      uri = novel;
+    }
+    final metadata = parser
+        .book(await _fetch(uri), uri)
+        .withUrl(uri.toString());
     if (metadata.firstChapter.isNotEmpty) {
       final first = Uri.parse(metadata.firstChapter);
       if (extractorFor(first).runtimeType != parser.runtimeType ||

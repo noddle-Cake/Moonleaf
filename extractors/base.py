@@ -1,3 +1,4 @@
+import json
 from abc import ABC, abstractmethod
 from urllib.parse import urljoin, urlsplit
 
@@ -30,8 +31,68 @@ class BaseExtractor(ABC):
         return response
 
     def get_book_metadata(self, url: str) -> BookMetadata:
+        """Metadata for a novel page, or for the novel a chapter link belongs to."""
+        url = self.novel_url(url)
         response = self.fetch(url)
-        return self.parse_book(BeautifulSoup(response.content, "html.parser"), response.url)
+        metadata = self.parse_book(BeautifulSoup(response.content, "html.parser"), response.url)
+        metadata["url"] = response.url
+        return metadata
+
+    def novel_url(self, url: str) -> str:
+        """The novel's main page for a novel or chapter URL."""
+        if not self.is_chapter(url):
+            return url
+        novel = self.novel_url_from_path(url)
+        if novel is None:
+            response = self.fetch(url)
+            novel = self.novel_url_from_chapter(
+                BeautifulSoup(response.content, "html.parser"), response.url)
+        if not novel or not self.supports(novel) or self.is_chapter(novel):
+            raise ExtractionError(
+                "Couldn't find the novel page for this chapter. Paste the novel's main page instead.")
+        return novel
+
+    @staticmethod
+    def segments(url: str) -> list[str]:
+        return [s for s in urlsplit(url).path.split("/") if s]
+
+    def is_chapter(self, url: str) -> bool:
+        """Whether the URL is a chapter page rather than the novel's main page."""
+        return False
+
+    def novel_url_from_path(self, url: str) -> str | None:
+        """The novel page when the chapter address alone is enough."""
+        return None
+
+    def novel_url_from_chapter(self, soup: BeautifulSoup, url: str) -> str | None:
+        """The novel page as linked from a chapter page."""
+        return None
+
+    @staticmethod
+    def breadcrumb_parent(soup: BeautifulSoup, url: str, accept) -> str | None:
+        """The nearest page above this one in a schema.org BreadcrumbList."""
+        for script in soup.select('script[type="application/ld+json"]'):
+            try:
+                data = json.loads(script.get_text())
+            except (ValueError, TypeError):
+                continue
+            nodes = data if isinstance(data, list) else [data]
+            for node in nodes:
+                if not isinstance(node, dict):
+                    continue
+                for item in node.get("@graph", [node]):
+                    if not isinstance(item, dict) or item.get("@type") != "BreadcrumbList":
+                        continue
+                    crumbs = [c for c in item.get("itemListElement", []) if isinstance(c, dict)]
+                    crumbs.sort(key=lambda c: c.get("position") or 0, reverse=True)
+                    for crumb in crumbs:
+                        target = crumb.get("item")
+                        if isinstance(target, dict):
+                            target = target.get("@id") or target.get("url")
+                        link = BaseExtractor.link(url, target if isinstance(target, str) else None)
+                        if link and accept(link):
+                            return link
+        return None
 
     def get_chapter(self, url: str, count: int) -> Chapter:
         response = self.fetch(url)
