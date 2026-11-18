@@ -10,6 +10,11 @@ void main() {
     final icons = FontLoader('MaterialIcons')
       ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
     await icons.load();
+    final cupertino = FontLoader('packages/cupertino_icons/CupertinoIcons')
+      ..addFont(
+        rootBundle.load('packages/cupertino_icons/assets/CupertinoIcons.ttf'),
+      );
+    await cupertino.load();
     for (final name in ['DM Sans', 'Fraunces']) {
       final loader = FontLoader(name)
         ..addFont(
@@ -26,7 +31,9 @@ void main() {
     'phone-light': (const Size(390, 844), AppAppearance.light),
     'ereader-light': (const Size(390, 844), AppAppearance.ereaderLight),
     'ereader-dark': (const Size(390, 844), AppAppearance.ereaderDark),
-    'more': (const Size(390, 844), AppAppearance.dark),
+    'settings': (const Size(390, 844), AppAppearance.light),
+    'search': (const Size(390, 844), AppAppearance.dark),
+    'updates-320': (const Size(320, 568), AppAppearance.light),
     'phone-320': (const Size(320, 568), AppAppearance.light),
     'phone-360': (const Size(360, 780), AppAppearance.dark),
   }.entries) {
@@ -38,9 +45,11 @@ void main() {
       final store = LibraryStore(appearance: entry.value.$2);
       await tester.pumpWidget(NovelApp(store: store));
       await tester.pumpAndSettle();
-      if (entry.key == 'more') {
-        await tester.tap(find.text('More').last);
-        await tester.pumpAndSettle();
+      for (final tab in ['Settings', 'Search', 'Updates']) {
+        if (entry.key.startsWith(tab.toLowerCase())) {
+          await tester.tap(find.text(tab).last);
+          await tester.pumpAndSettle();
+        }
       }
       await expectLater(
         find.byType(NovelApp),

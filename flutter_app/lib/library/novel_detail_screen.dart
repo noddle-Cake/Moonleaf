@@ -1,8 +1,11 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../reader/epub_document.dart';
 import '../reader/reader_settings.dart';
+import '../ui/components.dart';
+import '../ui/tokens.dart';
 import 'downloads.dart';
 import 'library_store.dart';
 import 'novel_cover.dart';
@@ -96,31 +99,21 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
     ..showSnackBar(SnackBar(content: Text(message)));
 
   Future<void> _shelf(LibraryNovel novel) async {
-    final shelf = await showModalBottomSheet<String>(
+    final shelf = await showCupertinoModalPopup<String>(
       context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                'Move to shelf',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
+      builder: (context) => CupertinoActionSheet(
+        title: const Text('Move to Shelf'),
+        actions: [
+          for (final s in shelves)
+            CupertinoActionSheetAction(
+              isDefaultAction: s == novel.shelf,
+              onPressed: () => Navigator.pop(context, s),
+              child: Text(s),
             ),
-            ...shelves.map(
-              (s) => ListTile(
-                title: Text(s),
-                trailing: s == novel.shelf
-                    ? const Icon(Icons.check_rounded)
-                    : null,
-                onTap: () => Navigator.pop(context, s),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
         ),
       ),
     );
@@ -133,24 +126,17 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
   }
 
   Future<void> _remove() async {
-    final confirm = await showDialog<bool>(
+    final title = store.find(url)?.title ?? 'this book';
+    final confirm = await showAppleAlert<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Remove from library?'),
-        content: const Text(
-          'This removes the book from Moonleaf with its reading progress, bookmarks and highlights. EPUB files you saved elsewhere stay on your device.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Remove'),
-          ),
-        ],
-      ),
+      title: 'Remove “$title”?',
+      message:
+          'Its reading progress, bookmarks and highlights are removed too. '
+          'EPUB files you saved elsewhere stay on your device.',
+      actions: const [
+        AlertAction('Cancel', false),
+        AlertAction('Remove', true, destructive: true),
+      ],
     );
     if (confirm != true) return;
     try {
@@ -217,6 +203,8 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
   ) {
     final colors = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final palette = Palette.of(context);
+    final side = Space.margin(MediaQuery.sizeOf(context).width);
     final current = _current(chapters);
     final finished = (_state?.progress ?? 0) >= .999;
     final downloading = status?.active ?? false;
@@ -240,19 +228,22 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
           PopupMenuItem(
             value: 'update',
             enabled: !downloading,
-            child: const Text('Check for new chapters'),
+            child: const Text('Check for New Chapters'),
           ),
         if (hasBook)
-          const PopupMenuItem(value: 'export', child: Text('Save EPUB file')),
+          const PopupMenuItem(value: 'export', child: Text('Save EPUB File')),
         if (!novel.isLocal)
           const PopupMenuItem(
             value: 'customize',
             child: Text('Customize EPUB…'),
           ),
-        const PopupMenuItem(value: 'shelf', child: Text('Change shelf')),
-        const PopupMenuItem(
+        const PopupMenuItem(value: 'shelf', child: Text('Change Shelf')),
+        PopupMenuItem(
           value: 'remove',
-          child: Text('Remove from library'),
+          child: Text(
+            'Remove from Library',
+            style: TextStyle(color: Palette.of(context).destructive),
+          ),
         ),
       ],
     );
@@ -322,6 +313,19 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
     final top = <Widget>[
       header,
       const SizedBox(height: 20),
+      // The main action, full width like Apple Books.
+      if (hasBook)
+        CapsuleButton(
+          key: const Key('read-novel'),
+          icon: CupertinoIcons.play_fill,
+          label: finished
+              ? 'Read Again'
+              : current >= 0
+              ? 'Resume'
+              : 'Start Reading',
+          onPressed: () => _read(novel),
+        ),
+      if (hasBook) const SizedBox(height: 12),
       if (status != null) _downloadCard(status),
       if (status == null && !hasBook && !novel.isLocal)
         Card(
@@ -414,14 +418,16 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
           children: [
             Expanded(
               child: Text(
-                loaded ? '${chapters.length} chapters' : 'Chapters',
-                style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                loaded ? '${chapters.length} Chapters' : 'Chapters',
+                style: text.titleLarge,
               ),
             ),
             IconButton(
               tooltip: _newestFirst ? 'Show oldest first' : 'Show newest first',
               icon: Icon(
-                _newestFirst ? Icons.arrow_downward : Icons.arrow_upward,
+                _newestFirst
+                    ? CupertinoIcons.sort_down
+                    : CupertinoIcons.sort_up,
               ),
               onPressed: () => setState(() => _newestFirst = !_newestFirst),
             ),
@@ -430,31 +436,17 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
     ];
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Novel details'),
+        title: const Text('Details'),
         actions: [
           if (!novel.isLocal)
             IconButton(
               tooltip: 'Open source website',
-              icon: const Icon(Icons.open_in_new),
+              icon: const Icon(CupertinoIcons.globe),
               onPressed: () => openSource(context, url),
             ),
           menu,
         ],
       ),
-      floatingActionButton: hasBook
-          ? FloatingActionButton.extended(
-              key: const Key('read-novel'),
-              onPressed: () => _read(novel),
-              icon: const Icon(Icons.play_arrow_rounded),
-              label: Text(
-                finished
-                    ? 'Read again'
-                    : current >= 0
-                    ? 'Resume'
-                    : 'Start',
-              ),
-            )
-          : null,
       body: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
@@ -462,7 +454,7 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
           child: CustomScrollView(
             slivers: [
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                padding: EdgeInsets.fromLTRB(side, 16, side, 0),
                 sliver: SliverList.list(children: top),
               ),
               if (hasBook && !loaded)
@@ -480,51 +472,59 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
                   ),
                 ),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(8, 0, 8, 96),
-                sliver: SliverList.builder(
-                  itemCount: order.length,
-                  itemBuilder: (context, i) {
-                    final index = order[i];
-                    final chapter = chapters[index];
-                    final read = finished || index < current;
-                    final here = index == current && !finished;
-                    return ListTile(
-                      key: ValueKey('chapter-$index'),
-                      contentPadding: EdgeInsets.only(
-                        left: 16 + chapter.depth * 16.0,
-                        right: 16,
-                      ),
-                      title: Text(
-                        chapter.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontWeight: read ? FontWeight.w400 : FontWeight.w600,
-                          color: read
-                              ? colors.onSurface.withValues(alpha: .45)
-                              : null,
+                padding: EdgeInsets.fromLTRB(side, 0, side, 48),
+                sliver: DecoratedSliver(
+                  decoration: BoxDecoration(
+                    color: order.isEmpty ? null : palette.cell,
+                    borderRadius: BorderRadius.circular(Radii.section),
+                  ),
+                  sliver: SliverList.builder(
+                    itemCount: order.length,
+                    itemBuilder: (context, i) {
+                      final index = order[i];
+                      final chapter = chapters[index];
+                      final read = finished || index < current;
+                      final here = index == current && !finished;
+                      return ListTile(
+                        key: ValueKey('chapter-$index'),
+                        contentPadding: EdgeInsets.only(
+                          left: 16 + chapter.depth * 16.0,
+                          right: 16,
                         ),
-                      ),
-                      subtitle: here
-                          ? Text(
-                              'Reading',
-                              style: TextStyle(color: colors.primary),
-                            )
-                          : null,
-                      trailing: here
-                          ? Icon(
-                              Icons.bookmark_rounded,
-                              color: colors.primary,
-                              size: 20,
-                            )
-                          : null,
-                      onTap: () => _read(
-                        novel,
-                        chapter: chapter.chapter,
-                        offset: chapter.offset,
-                      ),
-                    );
-                  },
+                        title: Text(
+                          chapter.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: read
+                                ? FontWeight.w400
+                                : FontWeight.w600,
+                            color: read
+                                ? colors.onSurface.withValues(alpha: .45)
+                                : null,
+                          ),
+                        ),
+                        subtitle: here
+                            ? Text(
+                                'Reading',
+                                style: TextStyle(color: colors.primary),
+                              )
+                            : null,
+                        trailing: here
+                            ? Icon(
+                                CupertinoIcons.bookmark_fill,
+                                color: colors.primary,
+                                size: 20,
+                              )
+                            : null,
+                        onTap: () => _read(
+                          novel,
+                          chapter: chapter.chapter,
+                          offset: chapter.offset,
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
             ],

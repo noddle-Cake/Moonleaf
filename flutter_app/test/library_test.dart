@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:novel_to_epub/library/library_screen.dart';
 import 'package:novel_to_epub/library/library_store.dart';
 import 'package:novel_to_epub/reader/epub_document.dart';
 import 'package:novel_to_epub/reader/reader_settings.dart';
@@ -34,7 +35,7 @@ void main() {
     expect((await LibraryStore.load()).novels, isEmpty);
     expect(find.text('Your next story starts here'), findsOneWidget);
     expect(find.byKey(const Key('library-grid')), findsNothing);
-    await tester.tap(find.text('More').last);
+    await tester.tap(find.text('Settings').last);
     await tester.pumpAndSettle();
     expect(find.text('Moonleaf'), findsOneWidget);
   });
@@ -82,15 +83,16 @@ void main() {
     await tester.pumpWidget(
       NovelApp(store: store, service: api, autoDownload: false),
     );
-    await tester.tap(find.text('Browse sources'));
+    // The empty library points to Search, which lists the sources.
+    await tester.tap(find.text('Browse Sources'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Add novel URL'));
+    await tester.tap(find.text('Add a Novel by Link'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('add-novel-url')),
       'https://roliascan.com/manga/sample/',
     );
-    await tester.tap(find.text('Add to library'));
+    await tester.tap(find.text('Add'));
     await tester.pumpAndSettle();
     expect(store.novels.single.title, 'A Sample Novel');
     // Adding opens the novel's page straight away.
@@ -115,7 +117,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pageBack();
     await tester.pumpAndSettle();
-    await tester.tap(find.text('History').last);
+    await tester.tap(find.text('Reading').last);
     await tester.pumpAndSettle();
     expect(find.text('Recently Opened'), findsOneWidget);
     expect(find.text('A Sample Novel'), findsOneWidget);
@@ -131,17 +133,27 @@ void main() {
     );
     await tester.pumpWidget(NovelApp(store: store));
     expect(find.byType(NavigationRail), findsOneWidget);
-    await tester.tap(find.byTooltip('Search library'));
-    await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('library-search')), 'winter');
     await tester.pumpAndSettle();
     expect(find.text('Winter Roads'), findsWidgets);
     expect(find.text('Paper Kingdom'), findsNothing);
-    await tester.tap(find.byTooltip('Library display'));
+    await tester.tap(find.byTooltip('Library options'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Cover grid'));
+    await tester.tap(find.text('Show as List'));
     await tester.pumpAndSettle();
     expect(store.grid, isFalse);
+    // Search finds books and turns pasted links into an Add action.
+    await tester.tap(find.text('Search').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('global-search')), 'paper');
+    await tester.pumpAndSettle();
+    expect(find.text('Paper Kingdom'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const Key('global-search')),
+      'https://www.royalroad.com/fiction/1/x',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Add This Link'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
   for (final appearance in [
@@ -153,11 +165,13 @@ void main() {
       (tester) async {
         final store = LibraryStore();
         await tester.pumpWidget(NovelApp(store: store));
-        await tester.tap(find.byTooltip('Appearance'));
+        await tester.tap(find.text('Settings').last);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Appearance'));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(Key('appearance-${appearance.name}')));
         await tester.pumpAndSettle();
-        final context = tester.element(find.byType(NavigationBar));
+        final context = tester.element(find.byType(LibraryScreen));
         expect(
           Theme.of(context).colorScheme.surface,
           appearance == AppAppearance.ereaderDark ? Colors.black : Colors.white,
@@ -188,7 +202,15 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pageBack();
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Appearance'));
+      // Every tab fits a 320-pt phone with large text.
+      for (final tab in ['Updates', 'Reading', 'Settings', 'Search']) {
+        await tester.tap(find.text(tab).last);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull, reason: tab);
+      }
+      await tester.tap(find.text('Settings').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Appearance'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     },
@@ -241,7 +263,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('3 chapters'), findsOneWidget);
+    expect(find.text('3 Chapters'), findsOneWidget);
     expect(find.text('Resume'), findsOneWidget);
     expect(find.widgetWithText(ListTile, 'Reading'), findsOneWidget);
     // Newest first, like Mihon; the sort button flips it.
@@ -267,5 +289,24 @@ void main() {
     final local = store.find('epub:abc')!;
     expect(local.isLocal, isTrue);
     expect(local.source, 'EPUB file');
+  });
+
+  test('updates record how many chapters were added', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = await LibraryStore.load();
+    addTearDown(store.dispose);
+    const url = 'https://www.royalroad.com/fiction/9/story';
+    const meta = BookMetadata(title: 'Story', author: 'A');
+    await store.attachEpub(url, 'k.epub', meta, chapters: 10);
+    expect(store.find(url)!.chapterCount, 10);
+    expect(store.find(url)!.newChapters, 0);
+    await store.attachEpub(url, 'k.epub', meta, chapters: 13);
+    expect(store.find(url)!.newChapters, 3);
+    expect(store.find(url)!.updatedAt, isNotNull);
+    await store.attachEpub(url, 'k.epub', meta, chapters: 13);
+    expect(store.find(url)!.newChapters, 0);
+    final reloaded = await LibraryStore.load();
+    expect(reloaded.find(url)!.chapterCount, 13);
+    reloaded.dispose();
   });
 }

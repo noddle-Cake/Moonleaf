@@ -1094,8 +1094,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     final line = MediaQuery.textScalerOf(context).scale(11.5) * 1.35;
     final headerH = s.header ? line + 10 : 0.0;
     final footerH = s.footer
-        ? line +
-              (s.footerItems.contains(FooterItem.progressBar) ? 13.0 : 4.0)
+        ? line + (s.footerItems.contains(FooterItem.progressBar) ? 13.0 : 4.0)
         : 0.0;
     final left = pad.left + s.marginSide, right = pad.right + s.marginSide;
     final top = pad.top + headerH + s.marginTop;
