@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../theme.dart';
+import '../ui/tokens.dart';
 import 'book_files.dart';
 import 'epub_document.dart';
 import 'reader_settings.dart';
@@ -1089,9 +1090,12 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   Widget _body(BoxConstraints box, ReaderPalette pal) {
     final pad = MediaQuery.viewPaddingOf(context);
-    final headerH = s.header ? 26.0 : 0.0;
+    // The header and status bar grow with the system text size.
+    final line = MediaQuery.textScalerOf(context).scale(11.5) * 1.35;
+    final headerH = s.header ? line + 10 : 0.0;
     final footerH = s.footer
-        ? (s.footerItems.contains(FooterItem.progressBar) ? 30.0 : 22.0)
+        ? line +
+              (s.footerItems.contains(FooterItem.progressBar) ? 13.0 : 4.0)
         : 0.0;
     final left = pad.left + s.marginSide, right = pad.right + s.marginSide;
     final top = pad.top + headerH + s.marginTop;

@@ -325,16 +325,56 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
       if (status != null) _downloadCard(status),
       if (status == null && !hasBook && !novel.isLocal)
         Card(
-          child: ListTile(
-            leading: Icon(Icons.download_outlined, color: colors.primary),
-            title: const Text('Not downloaded yet'),
-            subtitle: const Text('Download the chapters to read them here.'),
-            trailing: FilledButton(
-              key: const Key('download-novel'),
-              onPressed: widget.downloads == null
-                  ? () => widget.onExport(novel)
-                  : () => widget.downloads!.enqueue(url),
-              child: const Text('Download'),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: LayoutBuilder(
+              builder: (context, box) {
+                final button = FilledButton(
+                  key: const Key('download-novel'),
+                  onPressed: widget.downloads == null
+                      ? () => widget.onExport(novel)
+                      : () => widget.downloads!.enqueue(url),
+                  child: const Text('Download'),
+                );
+                final message = Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.download_outlined, color: colors.primary),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Not downloaded yet', style: text.titleMedium),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Download the chapters to read them here.',
+                            style: text.bodyMedium?.copyWith(
+                              color: colors.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+                // Slim phones and large text: put the button under the text.
+                final stacked =
+                    box.maxWidth < 420 ||
+                    MediaQuery.textScalerOf(context).scale(1) > 1.3;
+                return stacked
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [message, const SizedBox(height: 12), button],
+                      )
+                    : Row(
+                        children: [
+                          Expanded(child: message),
+                          const SizedBox(width: 12),
+                          button,
+                        ],
+                      );
+              },
             ),
           ),
         ),

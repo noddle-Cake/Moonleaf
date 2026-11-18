@@ -31,11 +31,14 @@ void main() {
     'reader-sepia-menu': ('sepia', 'menu'),
     'reader-night-typeset': ('night', 'typeset'),
     'reader-eink-contents': ('eink', 'contents'),
+    'reader-320-menu': ('paper', 'menu'),
   }.entries) {
     testWidgets('${entry.key} preview', (tester) async {
       // ignore: invalid_use_of_visible_for_testing_member
       SharedPreferences.setMockInitialValues({});
-      tester.view.physicalSize = const Size(390, 844);
+      tester.view.physicalSize = entry.key.contains('320')
+          ? const Size(320, 568)
+          : const Size(390, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -64,11 +67,11 @@ void main() {
       await tester.pumpAndSettle();
       switch (entry.value.$2) {
         case 'menu':
-          await tester.tapAt(const Offset(195, 40));
+          await tester.tapAt(const Offset(160, 30));
         case 'typeset':
           await tester.tapAt(const Offset(195, 820));
         case 'contents':
-          await tester.tapAt(const Offset(195, 40));
+          await tester.tapAt(const Offset(160, 30));
           await tester.pumpAndSettle();
           await tester.tap(find.text('Contents'));
       }

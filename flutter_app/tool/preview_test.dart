@@ -27,6 +27,8 @@ void main() {
     'ereader-light': (const Size(390, 844), AppAppearance.ereaderLight),
     'ereader-dark': (const Size(390, 844), AppAppearance.ereaderDark),
     'more': (const Size(390, 844), AppAppearance.dark),
+    'phone-320': (const Size(320, 568), AppAppearance.light),
+    'phone-360': (const Size(360, 780), AppAppearance.dark),
   }.entries) {
     testWidgets('${entry.key} preview', (tester) async {
       tester.view.physicalSize = entry.value.$1;

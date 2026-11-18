@@ -7,58 +7,74 @@ import 'package:flutter/material.dart';
 /// Apple's text styles at the default text size (points). Sizes scale with
 /// the system text size through [MediaQuery.textScaler].
 abstract final class TextStyles {
+  static const _font = 'DM Sans';
+
   static const largeTitle = TextStyle(
+    fontFamily: _font,
     fontSize: 34,
     height: 41 / 34,
     fontWeight: FontWeight.w700,
     letterSpacing: .4,
   );
   static const title1 = TextStyle(
+    fontFamily: _font,
     fontSize: 28,
     height: 34 / 28,
     fontWeight: FontWeight.w700,
     letterSpacing: .38,
   );
   static const title2 = TextStyle(
+    fontFamily: _font,
     fontSize: 22,
     height: 28 / 22,
     fontWeight: FontWeight.w700,
     letterSpacing: -.26,
   );
   static const title3 = TextStyle(
+    fontFamily: _font,
     fontSize: 20,
     height: 25 / 20,
     fontWeight: FontWeight.w600,
     letterSpacing: -.45,
   );
   static const headline = TextStyle(
+    fontFamily: _font,
     fontSize: 17,
     height: 22 / 17,
     fontWeight: FontWeight.w600,
     letterSpacing: -.43,
   );
   static const body = TextStyle(
+    fontFamily: _font,
     fontSize: 17,
     height: 22 / 17,
     letterSpacing: -.43,
   );
   static const callout = TextStyle(
+    fontFamily: _font,
     fontSize: 16,
     height: 21 / 16,
     letterSpacing: -.31,
   );
   static const subheadline = TextStyle(
+    fontFamily: _font,
     fontSize: 15,
     height: 20 / 15,
     letterSpacing: -.23,
   );
   static const footnote = TextStyle(
+    fontFamily: _font,
     fontSize: 13,
     height: 18 / 13,
     letterSpacing: -.08,
   );
-  static const caption1 = TextStyle(fontSize: 12, height: 16 / 12);
+  static const caption1 = TextStyle(
+    fontFamily: _font,
+    fontSize: 12,
+    height: 16 / 12,
+  );
   static const caption2 = TextStyle(
+    fontFamily: _font,
     fontSize: 11,
     height: 13 / 11,
     letterSpacing: .06,
