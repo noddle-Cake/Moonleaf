@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 
 import '../data/local_novel_service.dart';
+import '../library/library_store.dart';
+import '../library/reading.dart';
 
 import '../data/novel_api.dart';
 
@@ -15,8 +17,12 @@ class ConvertScreen extends StatefulWidget {
     this.service,
     this.initialUrl,
     this.initialBook,
+    this.store,
   });
   final NovelService? service;
+
+  /// When given, finished books are kept in the library for the reader.
+  final LibraryStore? store;
   final String? initialUrl;
   final BookMetadata? initialBook;
   @override
@@ -43,6 +49,9 @@ class _ConvertScreenState extends State<ConvertScreen> {
   bool _saving = false;
   bool _polling = false;
   bool _cancelling = false;
+  bool _keeping = false;
+  String? _keptUrl;
+  String? _keepError;
   int _generation = 0;
   bool get _working => _starting || (_job?.active ?? false);
   bool get _busy => _working || _detecting || _saving;
@@ -155,6 +164,8 @@ class _ConvertScreenState extends State<ConvertScreen> {
       _error = null;
       _job = null;
       _jobId = null;
+      _keptUrl = null;
+      _keepError = null;
       _cancelling = false;
     });
     try {
@@ -195,6 +206,7 @@ class _ConvertScreenState extends State<ConvertScreen> {
           if (!job.active) _cancelling = false;
         });
         if (!job.active) {
+          if (job.status == 'complete') unawaited(_keep());
           if (job.status == 'failed') {
             setState(
               () =>
@@ -221,6 +233,49 @@ class _ConvertScreenState extends State<ConvertScreen> {
         setState(() => _polling = false);
       }
     }
+  }
+
+  /// Keeps a copy of the finished book in the library for the reader.
+  Future<void> _keep() async {
+    final store = widget.store;
+    final jobId = _jobId;
+    if (store == null || jobId == null || _keeping) return;
+    final url = _url.text.trim();
+    setState(() {
+      _keeping = true;
+      _keepError = null;
+    });
+    try {
+      final bytes = await _service.download(jobId);
+      await keepEpub(
+        store,
+        url,
+        BookMetadata(
+          title: _exportTitle ?? _title.text.trim(),
+          author: _author.text.trim(),
+          firstChapter: _chapter.text.trim(),
+          coverUrl: _metadata?.coverUrl,
+          description: _metadata?.description,
+        ),
+        bytes,
+      );
+      if (mounted && jobId == _jobId) setState(() => _keptUrl = url);
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _keepError = 'Could not keep a copy for the reader. You can still save the EPUB.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _keeping = false);
+    }
+  }
+
+  Future<void> _readNow() async {
+    final store = widget.store;
+    final novel = _keptUrl == null ? null : store?.find(_keptUrl!);
+    if (store == null || novel == null) return;
+    await readNovel(context, store, novel);
   }
 
   Future<void> _cancel() async {
@@ -552,11 +607,31 @@ class _ConvertScreenState extends State<ConvertScreen> {
             ],
             if (complete) ...[
               const SizedBox(height: 20),
-              FilledButton.icon(
+              if (widget.store != null) ...[
+                FilledButton.icon(
+                  key: const Key('read-now'),
+                  onPressed: _keptUrl == null ? null : _readNow,
+                  icon: _keeping
+                      ? _spinner()
+                      : const Icon(Icons.menu_book_outlined),
+                  label: Text(
+                    _keeping ? 'Adding to your library…' : 'Read now',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (_keepError != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(_keepError!),
+                  ),
+              ],
+              (widget.store == null ? FilledButton.icon : OutlinedButton.icon)(
                 key: const Key('save-epub'),
                 onPressed: _saving ? null : _save,
                 icon: _saving ? _spinner() : const Icon(Icons.save_alt),
-                label: const Text('Save EPUB'),
+                label: Text(
+                  widget.store == null ? 'Save EPUB' : 'Save EPUB file',
+                ),
               ),
               const SizedBox(height: 12),
               Text(

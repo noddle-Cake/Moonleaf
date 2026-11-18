@@ -189,4 +189,58 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('kept EPUBs show reading progress and open the reader', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues({});
+    final store = await LibraryStore.load();
+    addTearDown(store.dispose);
+    await store.attachEpub(
+      'https://www.royalroad.com/fiction/1/sample/',
+      'web-sample.epub',
+      const BookMetadata(title: 'Kept Novel', author: 'Someone'),
+    );
+    final url = store.novels.single.url;
+    expect(url, 'https://www.royalroad.com/fiction/1/sample');
+    expect(store.novels.single.shelf, 'Reading');
+    await store.setProgress(url, .4);
+    final reloaded = await LibraryStore.load();
+    expect(reloaded.novels.single.epub, 'web-sample.epub');
+    expect(reloaded.novels.single.progress, .4);
+    reloaded.dispose();
+    LibraryNovel? read;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NovelDetailScreen(
+          url: url,
+          store: store,
+          onExport: (_) {},
+          onRead: (n) => read = n,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Update EPUB'), findsOneWidget);
+    expect(find.text('40.0% read'), findsOneWidget);
+    await tester.tap(find.text('Continue reading · 40%'));
+    expect(read?.url, url);
+    await store.addLocal(
+      LibraryNovel(
+        url: 'epub:abc',
+        title: 'Imported',
+        author: '',
+        firstChapter: '',
+        addedAt: DateTime(2026),
+        epub: 'epub_abc.epub',
+      ),
+    );
+    final local = store.find('epub:abc')!;
+    expect(local.isLocal, isTrue);
+    expect(local.source, 'EPUB file');
+  });
 }

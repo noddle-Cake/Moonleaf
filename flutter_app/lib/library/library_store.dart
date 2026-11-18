@@ -20,13 +20,31 @@ class LibraryNovel {
     this.description,
     this.shelf = 'Plan to read',
     this.openedAt,
+    this.epub,
+    this.coverFile,
+    this.progress,
   });
   final String url, title, author, firstChapter, shelf;
   final String? coverUrl, description;
   final DateTime addedAt;
   final DateTime? openedAt;
-  String get source =>
-      Uri.parse(url).host.contains('royalroad') ? 'Royal Road' : 'RoliaScan';
+
+  /// Key of the EPUB stored in the app for the in-app reader.
+  final String? epub;
+
+  /// Key of a cover image stored in the app (imported EPUBs).
+  final String? coverFile;
+
+  /// Reading progress from 0 to 1, once the book has been opened.
+  final double? progress;
+
+  /// Imported EPUB files use `epub:` identifiers instead of web addresses.
+  bool get isLocal => url.startsWith('epub:');
+  String get source => isLocal
+      ? 'EPUB file'
+      : Uri.parse(url).host.contains('royalroad')
+      ? 'Royal Road'
+      : 'RoliaScan';
   BookMetadata get metadata => BookMetadata(
     title: title,
     author: author,
@@ -34,7 +52,12 @@ class LibraryNovel {
     coverUrl: coverUrl,
     description: description,
   );
-  LibraryNovel copyWith({String? shelf, DateTime? openedAt}) => LibraryNovel(
+  LibraryNovel copyWith({
+    String? shelf,
+    DateTime? openedAt,
+    String? epub,
+    double? progress,
+  }) => LibraryNovel(
     url: url,
     title: title,
     author: author,
@@ -44,6 +67,9 @@ class LibraryNovel {
     description: description,
     shelf: shelf ?? this.shelf,
     openedAt: openedAt ?? this.openedAt,
+    epub: epub ?? this.epub,
+    coverFile: coverFile,
+    progress: progress ?? this.progress,
   );
   Map<String, dynamic> toJson() => {
     'url': url,
@@ -55,6 +81,9 @@ class LibraryNovel {
     'description': description,
     'shelf': shelf,
     'openedAt': openedAt?.toIso8601String(),
+    'epub': epub,
+    'coverFile': coverFile,
+    'progress': progress,
   };
   factory LibraryNovel.fromJson(Map<String, dynamic> value) => LibraryNovel(
     url: value['url'] as String,
@@ -68,6 +97,9 @@ class LibraryNovel {
     openedAt: value['openedAt'] == null
         ? null
         : DateTime.parse(value['openedAt'] as String),
+    epub: value['epub'] as String?,
+    coverFile: value['coverFile'] as String?,
+    progress: (value['progress'] as num?)?.toDouble(),
   );
 }
 
@@ -143,13 +175,22 @@ class LibraryStore extends ChangeNotifier {
     return next;
   }
 
+  static String canonical(String url) => url.startsWith('epub:')
+      ? url
+      : Uri.parse(url)
+            .removeFragment()
+            .replace(query: '')
+            .toString()
+            .replaceFirst(RegExp(r'\?*$'), '')
+            .replaceFirst(RegExp(r'/+$'), '');
+
+  LibraryNovel? find(String url) {
+    final key = canonical(url);
+    return _novels.where((n) => n.url == key).firstOrNull;
+  }
+
   Future<void> add(String url, BookMetadata metadata) => _change(() {
-    final canonical = Uri.parse(url)
-        .removeFragment()
-        .replace(query: '')
-        .toString()
-        .replaceFirst(RegExp(r'\?*$'), '')
-        .replaceFirst(RegExp(r'/+$'), '');
+    final canonical = LibraryStore.canonical(url);
     if (_novels.any((n) => n.url == canonical)) return;
     _novels.add(
       LibraryNovel(
@@ -163,6 +204,51 @@ class LibraryStore extends ChangeNotifier {
       ),
     );
   });
+
+  /// Adds an imported EPUB file, or refreshes it if it is already here.
+  Future<void> addLocal(LibraryNovel novel) => _change(() {
+    final index = _novels.indexWhere((n) => n.url == novel.url);
+    if (index < 0) {
+      _novels.add(novel);
+    } else {
+      _novels[index] = _novels[index].copyWith(epub: novel.epub);
+    }
+  });
+
+  /// Keeps an app copy of a web novel's EPUB for the reader, adding the novel
+  /// to the library first if needed.
+  Future<void> attachEpub(String url, String key, BookMetadata metadata) =>
+      _change(() {
+        final canonical = LibraryStore.canonical(url);
+        final index = _novels.indexWhere((n) => n.url == canonical);
+        if (index < 0) {
+          _novels.add(
+            LibraryNovel(
+              url: canonical,
+              title: metadata.title.isEmpty ? 'Untitled novel' : metadata.title,
+              author: metadata.author,
+              firstChapter: metadata.firstChapter,
+              addedAt: DateTime.now(),
+              coverUrl: metadata.coverUrl,
+              description: metadata.description,
+              shelf: 'Reading',
+              epub: key,
+            ),
+          );
+        } else {
+          _novels[index] = _novels[index].copyWith(epub: key);
+        }
+      });
+
+  Future<void> setProgress(String url, double progress) => _change(
+    () => _novels = _novels
+        .map(
+          (n) =>
+              n.url == url ? n.copyWith(progress: progress.clamp(0.0, 1.0)) : n,
+        )
+        .toList(),
+  );
+
   Future<void> remove(String url) =>
       _change(() => _novels.removeWhere((n) => n.url == url));
   Future<void> setShelf(String url, String shelf) => _change(() {

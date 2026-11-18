@@ -1,6 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
+import '../reader/book_files.dart';
 import 'library_store.dart';
+
+final _localCovers = <String, Future<Uint8List?>>{};
 
 class NovelCover extends StatelessWidget {
   const NovelCover({super.key, required this.novel, this.overlay = false});
@@ -86,7 +91,21 @@ class NovelCover extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (novel.coverUrl?.isNotEmpty ?? false)
+          if (novel.coverFile != null)
+            FutureBuilder<Uint8List?>(
+              future: _localCovers.putIfAbsent(
+                novel.coverFile!,
+                () => readBook(novel.coverFile!).catchError((Object _) => null),
+              ),
+              builder: (context, snapshot) => snapshot.data == null
+                  ? fallback()
+                  : Image.memory(
+                      snapshot.data!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => fallback(),
+                    ),
+            )
+          else if (novel.coverUrl?.isNotEmpty ?? false)
             Image.network(
               novel.coverUrl!,
               fit: BoxFit.cover,
@@ -96,6 +115,18 @@ class NovelCover extends StatelessWidget {
             )
           else
             fallback(),
+          if ((novel.progress ?? 0) > 0.001)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: LinearProgressIndicator(
+                value: novel.progress,
+                minHeight: 3,
+                backgroundColor: Colors.black38,
+                color: const Color(0xFFE7D8BE),
+              ),
+            ),
           if (overlay) ...[
             const DecoratedBox(
               decoration: BoxDecoration(
