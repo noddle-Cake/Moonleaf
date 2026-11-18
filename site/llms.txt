@@ -7,7 +7,7 @@
 - Price: free. No ads, no in-app purchases, no account.
 - Platform: Android 7.0 or later. APK download of about 160 MB. iOS, macOS, Windows and Linux builds are possible from source but not published.
 - Supported sources: Royal Road and RoliaScan text novels (not image-only manga). Any EPUB file can also be imported.
-- What it does: add a novel by URL, create an EPUB on the device, read it in the app with "Read now" or "Continue reading", or export the EPUB file. "Update EPUB" collects new chapters and keeps reading position.
+- What it does: add a novel by its URL or by a link to any chapter (the whole book is downloaded from chapter 1), create an EPUB on the device, read it in the app with "Read now" or "Continue reading", or export the EPUB file. "Update EPUB" collects new chapters and keeps reading position.
 - Reader features: paged or continuous view; font (including custom TTF/OTF), size, weight, line/word/letter spacing, indent, paragraph spacing, margins, justification; page colors Paper, Sepia, Sage, Dusk, Night, E-ink and E-ink dark; configurable tap zones, swipe, pinch-to-zoom text and keyboard page turns; configurable status bar; contents with page numbers; bookmarks; highlights with notes in several colors; full-text search; go to page or percent; footnote previews; dictionary, Wikipedia and translation look-ups in the browser; reading statistics and time-left estimates.
 - Library: Mihon-inspired cover grid or list, Plan to read / Reading / Completed shelves, search, history and progress bars.
 - Privacy: all data (library, EPUBs, positions, highlights, statistics) is stored on the device. The app connects only to the novel sites the user chooses.
