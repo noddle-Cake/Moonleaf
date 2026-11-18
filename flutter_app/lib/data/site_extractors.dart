@@ -484,7 +484,6 @@ class FanFictionExtractor extends SiteExtractor {
     final first = _chapterPage(chapter, 1);
     return first == null ? null : fetchUrl(first);
   }
-
   @override
   Uri? novelFromChapter(String source, Uri chapter) => novelFromPath(chapter);
 
