@@ -62,8 +62,8 @@ extension _Panels on _ReaderScreenState {
   Widget _heading(String text) => Padding(
     padding: const EdgeInsets.only(top: 14, bottom: 6),
     child: Text(
-      text.toUpperCase(),
-      style: Theme.of(_ctx).textTheme.labelMedium?.copyWith(letterSpacing: 1.3),
+      text,
+      style: Theme.of(_ctx).textTheme.titleMedium,
     ),
   );
 
@@ -158,7 +158,7 @@ extension _Panels on _ReaderScreenState {
   ]);
 
   Widget _layoutTab(ReaderSettings settings) => _panel([
-    _heading('View mode'),
+    _heading('View Mode'),
     SegmentedButton<ReaderView>(
       segments: const [
         ButtonSegment(
@@ -292,7 +292,7 @@ extension _Panels on _ReaderScreenState {
 
     final dark = Theme.of(_ctx).brightness == Brightness.dark;
     return _panel([
-      _heading('Page color'),
+      _heading('Page Color'),
       Wrap(
         spacing: 14,
         runSpacing: 14,
@@ -309,7 +309,7 @@ extension _Panels on _ReaderScreenState {
             swatch(e.key, e.value.label, e.value.background, e.value.text),
         ],
       ),
-      _heading('Page turns'),
+      _heading('Page Turns'),
       SegmentedButton<PageAnimation>(
         segments: const [
           ButtonSegment(value: PageAnimation.none, label: Text('Instant')),
@@ -345,7 +345,7 @@ extension _Panels on _ReaderScreenState {
   }
 
   Widget _controlsTab(ReaderSettings settings) => _panel([
-    _heading('Tap zones'),
+    _heading('Tap Zones'),
     RadioGroup<TapLayout>(
       groupValue: settings.tapLayout,
       onChanged: (v) => settings.update((s) => s.tapLayout = v!),
@@ -497,7 +497,7 @@ extension _Panels on _ReaderScreenState {
       value: settings.footer,
       onChanged: (v) => settings.update((s) => s.footer = v),
     ),
-    _heading('Status bar items'),
+    _heading('Status Bar Items'),
     for (final item in FooterItem.values)
       CheckboxListTile(
         contentPadding: EdgeInsets.zero,

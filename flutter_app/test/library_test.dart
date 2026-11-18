@@ -117,7 +117,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('History').last);
     await tester.pumpAndSettle();
-    expect(find.text('RECENTLY OPENED'), findsOneWidget);
+    expect(find.text('Recently Opened'), findsOneWidget);
     expect(find.text('A Sample Novel'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

@@ -422,7 +422,12 @@ void main() {
       await tester.scrollUntilVisible(
         find.text('Button for next page'),
         200,
-        scrollable: find.byType(Scrollable).last,
+        scrollable: find
+            .ancestor(
+              of: find.text('Tap Zones'),
+              matching: find.byType(Scrollable),
+            )
+            .first,
       );
       await tester.tap(find.text('Button for next page'));
       await tester.pumpAndSettle();
