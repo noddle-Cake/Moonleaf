@@ -15,7 +15,11 @@ class BookMetadata {
     this.firstChapter = '',
     this.coverUrl,
     this.description,
+    this.url = '',
   });
+
+  /// The novel's main page. Detecting from a chapter link fills this in.
+  final String url;
   final String title;
   final String author;
   final String firstChapter;
@@ -28,6 +32,16 @@ class BookMetadata {
     firstChapter: json['chapter_1'] as String? ?? '',
     coverUrl: json['cover_url'] as String?,
     description: json['description'] as String?,
+    url: json['url'] as String? ?? '',
+  );
+
+  BookMetadata withUrl(String value) => BookMetadata(
+    title: title,
+    author: author,
+    firstChapter: firstChapter,
+    coverUrl: coverUrl,
+    description: description,
+    url: value,
   );
 }
 

@@ -72,9 +72,7 @@ class BookArt extends StatelessWidget {
                       child: SizedBox(
                         width: constraints.maxWidth,
                         child: Text(
-                          author.isEmpty
-                              ? 'MOONLEAF'
-                              : author.toUpperCase(),
+                          author.isEmpty ? 'MOONLEAF' : author.toUpperCase(),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(

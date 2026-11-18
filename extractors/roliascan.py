@@ -9,6 +9,30 @@ from .base import BaseExtractor, Chapter, ExtractionError
 class RoliaScanExtractor(BaseExtractor):
     hosts = ("roliascan.com", "www.roliascan.com")
 
+    def is_chapter(self, url):
+        parts = self.segments(url)
+        return len(parts) >= 3 and parts[0] == "read"
+
+    def _is_novel_page(self, url):
+        parts = self.segments(url)
+        return self.supports(url) and len(parts) == 2 and parts[0] == "manga"
+
+    def novel_url_from_chapter(self, soup, url):
+        """Chapter pages link their novel in the breadcrumb trail."""
+        found = self.breadcrumb_parent(soup, url, self._is_novel_page)
+        if found:
+            return found
+        slug = self.segments(url)[1]
+        links = [link for a in soup.select('a[href*="/manga/"]')
+                 if (link := self.link(url, a.get("href"))) and self._is_novel_page(link)]
+        own = [link for link in links if self.segments(link)[1] == slug]
+        if own:
+            return own[0]
+        if len(links) == 1:
+            return links[0]
+        split = urlsplit(url)
+        return f"{split.scheme}://{split.netloc}/manga/{slug}/"
+
     @staticmethod
     def _book_data(soup):
         for script in soup.select('script[type="application/ld+json"]'):
