@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../theme.dart';
+import '../ui/components.dart';
 import '../ui/tokens.dart';
 import 'book_files.dart';
 import 'epub_document.dart';
@@ -590,7 +592,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     final x = p.dx / box.size.width, y = p.dy / box.size.height;
     if (y < .14) return _setMenu(true);
     if (y > .9) {
-      _typeset();
+      _themes();
       return;
     }
     final back = s.tapLayout == TapLayout.inverted
@@ -959,6 +961,14 @@ class _ReaderScreenState extends State<ReaderScreen>
     );
   }
 
+  /// The current page's text, for screen readers.
+  String _pageText(ChapterLayout l) {
+    final info = l.pages[_page.clamp(0, l.pages.length - 1)];
+    final text = doc.chapters[_chapter].plainText;
+    final start = info.start.clamp(0, text.length);
+    return text.substring(start, info.end.clamp(start, text.length)).trim();
+  }
+
   Widget _scrollView(ChapterLayout l) {
     final key = '$_gen-$_chapter';
     if (_scrollKey != key) {
@@ -1045,9 +1055,12 @@ class _ReaderScreenState extends State<ReaderScreen>
             onLongPressEnd: (_) => setState(() => _selecting = false),
             child: Padding(
               padding: EdgeInsets.only(top: gap),
-              child: CustomPaint(
-                size: Size(_content.width, lb.height),
-                painter: BlockPainter(lb, palette, marks, s.invertImages),
+              child: Semantics(
+                label: lb.block.text.trim(),
+                child: CustomPaint(
+                  size: Size(_content.width, lb.height),
+                  painter: BlockPainter(lb, palette, marks, s.invertImages),
+                ),
               ),
             ),
           );
@@ -1209,7 +1222,13 @@ class _ReaderScreenState extends State<ReaderScreen>
                 )
               : _scrollMode
               ? _scrollView(l)
-              : IgnorePointer(child: _pageView(l)),
+              // Taps reach the reader's gesture layer; screen readers still
+              // get the page's text.
+              : Semantics(
+                  container: true,
+                  label: _pageText(l),
+                  child: IgnorePointer(child: _pageView(l)),
+                ),
         ),
         if (s.header)
           Positioned(
@@ -1299,65 +1318,60 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   List<Widget> _menus(EdgeInsets pad, String chapterTitle) {
-    final colors = Theme.of(_ctx).colorScheme;
-    final state = _state!;
+    final p = Palette.of(_ctx);
     final pages = _counted && !_scrollMode
         ? 'Page $_bookPage of $_bookPages'
         : _scrollMode
         ? 'Chapter ${_chapter + 1} of ${doc.chapters.length}'
         : 'Page ${_page + 1} of ${_layout?.pages.length ?? '…'} in chapter';
+    final state = _state!;
+    final title = TextStyles.headline.copyWith(color: p.label);
+    final small = TextStyles.caption1.copyWith(color: p.secondaryLabel);
     return [
+      // Top: close on the leading edge, the book in the middle, and search
+      // and bookmark grouped on the trailing edge.
       Positioned(
         top: 0,
         left: 0,
         right: 0,
-        child: Material(
-          color: colors.surfaceContainer,
-          elevation: palette.eink ? 0 : 3,
-          shape: palette.eink
-              ? Border(bottom: BorderSide(color: colors.outline))
-              : null,
+        child: GlassBar(
           child: Padding(
             padding: EdgeInsets.only(
               top: pad.top,
-              left: pad.left,
-              right: pad.right,
+              left: pad.left + 4,
+              right: pad.right + 4,
             ),
             child: SizedBox(
-              height: 60,
+              height: 52,
               child: Row(
                 children: [
                   IconButton(
                     tooltip: 'Close book',
-                    icon: const Icon(Icons.arrow_back),
+                    icon: const Icon(CupertinoIcons.xmark),
                     onPressed: () => Navigator.maybePop(context),
                   ),
                   Expanded(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           doc.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
+                          style: title,
                         ),
                         Text(
                           chapterTitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: colors.onSurfaceVariant,
-                          ),
+                          style: small,
                         ),
                       ],
                     ),
                   ),
                   IconButton(
                     tooltip: 'Search in book',
-                    icon: const Icon(Icons.search),
+                    icon: const Icon(CupertinoIcons.search),
                     onPressed: _search,
                   ),
                   IconButton(
@@ -1366,39 +1380,10 @@ class _ReaderScreenState extends State<ReaderScreen>
                         : 'Bookmark this page',
                     icon: Icon(
                       _bookmarked
-                          ? Icons.bookmark
-                          : Icons.bookmark_add_outlined,
+                          ? CupertinoIcons.bookmark_fill
+                          : CupertinoIcons.bookmark,
                     ),
                     onPressed: _toggleBookmark,
-                  ),
-                  PopupMenuButton<String>(
-                    tooltip: 'More',
-                    onSelected: (v) => switch (v) {
-                      'goto' => _goToDialog(),
-                      'stats' => _stats(),
-                      'info' => _info(),
-                      'export' => _exportNotes(),
-                      _ => null,
-                    },
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(
-                        value: 'goto',
-                        child: Text('Go to page or %'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'stats',
-                        child: Text('Reading statistics'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'info',
-                        child: Text('Book information'),
-                      ),
-                      PopupMenuItem(
-                        value: 'export',
-                        enabled: state.highlights.isNotEmpty,
-                        child: const Text('Copy highlights and notes'),
-                      ),
-                    ],
                   ),
                 ],
               ),
@@ -1406,69 +1391,88 @@ class _ReaderScreenState extends State<ReaderScreen>
           ),
         ),
       ),
+      // Bottom: contents, the scrubber, Themes & Settings and More.
       Positioned(
         left: 0,
         right: 0,
         bottom: 0,
-        child: Material(
-          color: colors.surfaceContainer,
-          elevation: palette.eink ? 0 : 3,
-          shape: palette.eink
-              ? Border(top: BorderSide(color: colors.outline))
-              : null,
+        child: GlassBar(
           child: Padding(
             padding: EdgeInsets.only(
               bottom: pad.bottom + 4,
-              left: pad.left + 8,
-              right: pad.right + 8,
-              top: 6,
+              left: pad.left + 4,
+              right: pad.right + 4,
+              top: 8,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                Text(
+                  '$pages · ${(_shownProgress * 100).toStringAsFixed(1)}%',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: small,
+                ),
                 Row(
                   children: [
                     IconButton(
-                      tooltip: 'Previous chapter',
-                      icon: const Icon(Icons.skip_previous_outlined),
-                      onPressed: _chapter == 0
-                          ? null
-                          : () => _goTo(_chapter - 1, 0, remember: false),
+                      tooltip: 'Contents',
+                      icon: const Icon(CupertinoIcons.list_bullet),
+                      onPressed: () => _navigate(0),
                     ),
                     Expanded(child: _Skimmer(this)),
                     IconButton(
-                      tooltip: 'Next chapter',
-                      icon: const Icon(Icons.skip_next_outlined),
-                      onPressed: _chapter + 1 >= doc.chapters.length
-                          ? null
-                          : () => _goTo(_chapter + 1, 0, remember: false),
+                      tooltip: 'Themes & Settings',
+                      icon: const Icon(CupertinoIcons.textformat_size),
+                      onPressed: _themes,
                     ),
-                  ],
-                ),
-                Text(
-                  '$pages · ${(_shownProgress * 100).toStringAsFixed(1)}%',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _MenuButton(Icons.toc, 'Contents', () => _navigate(0)),
-                    _MenuButton(
-                      Icons.bookmarks_outlined,
-                      'Notes',
-                      () => _navigate(1),
+                    PopupMenuButton<String>(
+                      tooltip: 'More',
+                      icon: const Icon(CupertinoIcons.ellipsis_circle),
+                      onSelected: (v) => switch (v) {
+                        'notes' => _navigate(1),
+                        'goto' => _goToDialog(),
+                        'previous' => _goTo(_chapter - 1, 0, remember: false),
+                        'next' => _goTo(_chapter + 1, 0, remember: false),
+                        'stats' => _stats(),
+                        'info' => _info(),
+                        'export' => _exportNotes(),
+                        _ => null,
+                      },
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(
+                          value: 'notes',
+                          child: Text('Bookmarks & Highlights'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'goto',
+                          child: Text('Go to Page or %'),
+                        ),
+                        PopupMenuItem(
+                          value: 'previous',
+                          enabled: _chapter > 0,
+                          child: const Text('Previous Chapter'),
+                        ),
+                        PopupMenuItem(
+                          value: 'next',
+                          enabled: _chapter + 1 < doc.chapters.length,
+                          child: const Text('Next Chapter'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'stats',
+                          child: Text('Reading Statistics'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'info',
+                          child: Text('Book Information'),
+                        ),
+                        PopupMenuItem(
+                          value: 'export',
+                          enabled: state.highlights.isNotEmpty,
+                          child: const Text('Copy Highlights & Notes'),
+                        ),
+                      ],
                     ),
-                    _MenuButton(Icons.text_format, 'Typeset', _typeset),
-                    _MenuButton(
-                      Icons.contrast,
-                      'Theme',
-                      () => _typeset(tab: 2),
-                    ),
-                    _MenuButton(Icons.insights_outlined, 'Stats', _stats),
                   ],
                 ),
               ],
@@ -1479,86 +1483,115 @@ class _ReaderScreenState extends State<ReaderScreen>
     ];
   }
 
+  /// The selected text's bounds on screen (paged view), for placing the
+  /// selection menu next to it.
+  Rect? _selectionRect() {
+    final sel = _selection, l = _layout, info = _pageInfo;
+    if (sel == null || l == null || info == null || _scrollMode) return null;
+    if (sel.$1 != _chapter) return null;
+    Rect? box;
+    for (final slice in info.slices) {
+      final lb = l.blocks[slice.block];
+      final painter = lb.painter;
+      if (painter == null) continue;
+      final start = lb.block.charStart, end = start + lb.block.length;
+      if (sel.$3 <= start || sel.$2 >= end) continue;
+      final boxes = painter.getBoxesForSelection(
+        TextSelection(
+          baseOffset: lb.localToPainter(math.max(sel.$2, start) - start),
+          extentOffset: lb.localToPainter(math.min(sel.$3, end) - start),
+        ),
+      );
+      for (final b in boxes) {
+        final r = b.toRect().shift(Offset(lb.left, slice.y - slice.top));
+        if (r.bottom < slice.y || r.top > slice.y + slice.bottom - slice.top) {
+          continue;
+        }
+        box = box == null ? r : box.expandToInclude(r);
+      }
+    }
+    return box?.shift(_content.topLeft);
+  }
+
+  /// The edit menu for selected text, placed just above the selection (or
+  /// below it near the top of the page), like the system menu on iPhone.
   Widget _selectionBar(EdgeInsets pad) {
-    final colors = Theme.of(_ctx).colorScheme;
     final text = _selectedText;
-    Widget action(IconData icon, String label, VoidCallback onTap) =>
-        TextButton.icon(
-          onPressed: onTap,
-          icon: Icon(icon, size: 18),
-          label: Text(label),
-        );
+    const menuHeight = 46.0;
+    final screen = MediaQuery.sizeOf(_ctx);
+    final anchor = _selectionRect();
+    double? top, bottom;
+    if (anchor == null) {
+      bottom = pad.bottom + 40;
+    } else if (anchor.top - menuHeight - 12 > pad.top + 8) {
+      top = anchor.top - menuHeight - 12;
+    } else {
+      top = math.min(anchor.bottom + 12, screen.height - menuHeight - 24);
+    }
+    const ink = Color(0xFF2C2C2E);
+    Widget action(String label, VoidCallback onTap) => TextButton(
+      onPressed: onTap,
+      style: TextButton.styleFrom(
+        foregroundColor: Colors.white,
+        minimumSize: const Size(minTarget, menuHeight),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        textStyle: TextStyles.subheadline.copyWith(fontWeight: FontWeight.w500),
+        shape: const RoundedRectangleBorder(),
+      ),
+      child: Text(label),
+    );
+    Widget divider() => Container(width: .5, height: 22, color: Colors.white24);
+    final actions = [
+      action('Copy', () {
+        Clipboard.setData(ClipboardData(text: text));
+        setState(() => _selection = null);
+        _toast('Copied');
+      }),
+      action('Highlight', () => _highlight()),
+      action('Note', () => _highlight(note: true)),
+      action('Look Up', () => _lookUp(text, 'dictionary')),
+      action('Translate', () => _lookUp(text, 'translate')),
+      action('Search', () {
+        setState(() => _selection = null);
+        _search(initial: text);
+      }),
+      action('Wikipedia', () => _lookUp(text, 'wikipedia')),
+    ];
     return Positioned(
       left: 12 + pad.left,
       right: 12 + pad.right,
-      bottom: pad.bottom + 40,
+      top: top,
+      bottom: bottom,
       child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 640),
-          child: Material(
-            elevation: palette.eink ? 0 : 6,
-            color: colors.surfaceContainerHigh,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-              side: palette.eink
-                  ? BorderSide(color: colors.outline)
-                  : BorderSide.none,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
+        child: Material(
+          color: palette.eink ? palette.background : ink,
+          elevation: palette.eink ? 0 : 8,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: palette.eink
+                ? BorderSide(color: palette.text)
+                : BorderSide.none,
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Theme(
+            data: palette.eink
+                ? Theme.of(_ctx).copyWith(
+                    textButtonTheme: TextButtonThemeData(
+                      style: TextButton.styleFrom(
+                        foregroundColor: palette.text,
+                      ),
+                    ),
+                  )
+                : Theme.of(_ctx),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-                    child: Text(
-                      text,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: colors.onSurfaceVariant),
-                    ),
-                  ),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        action(
-                          Icons.border_color_outlined,
-                          'Highlight',
-                          () => _highlight(),
-                        ),
-                        action(
-                          Icons.edit_note,
-                          'Note',
-                          () => _highlight(note: true),
-                        ),
-                        action(Icons.copy, 'Copy', () {
-                          Clipboard.setData(ClipboardData(text: text));
-                          setState(() => _selection = null);
-                          _toast('Copied');
-                        }),
-                        action(
-                          Icons.menu_book_outlined,
-                          'Dictionary',
-                          () => _lookUp(text, 'dictionary'),
-                        ),
-                        action(
-                          Icons.public,
-                          'Wikipedia',
-                          () => _lookUp(text, 'wikipedia'),
-                        ),
-                        action(
-                          Icons.translate,
-                          'Translate',
-                          () => _lookUp(text, 'translate'),
-                        ),
-                        action(Icons.search, 'Search', () {
-                          setState(() => _selection = null);
-                          _search(initial: text);
-                        }),
-                      ],
-                    ),
-                  ),
+                  for (var i = 0; i < actions.length; i++) ...[
+                    if (i > 0) divider(),
+                    actions[i],
+                  ],
                 ],
               ),
             ),
@@ -1568,13 +1601,13 @@ class _ReaderScreenState extends State<ReaderScreen>
     );
   }
 
-  void _rebuild() => setState(() {});
-
   void _toast(String message) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
   }
+
+  void _rebuild() => setState(() {});
 }
 
 /// App theme recolored so menus and sheets sit naturally on the page color.
@@ -1597,44 +1630,35 @@ ThemeData _readerTheme(ReaderPalette pal) {
     onSurfaceVariant: pal.muted,
     outlineVariant: tint(.18),
   );
+  final app = Palette.ofTheme(base);
+  // Menus, sheets and the glass bars take their colors from the page.
+  final page = Palette(
+    dark: pal.dark,
+    background: tint(.03),
+    cell: tint(.06),
+    elevated: tint(.05),
+    label: pal.text,
+    secondaryLabel: pal.muted,
+    tertiaryLabel: pal.muted.withValues(alpha: .6),
+    separator: pal.text.withValues(alpha: .16),
+    fill: pal.text.withValues(alpha: .08),
+    accent: app.accent,
+    onAccent: app.onAccent,
+    destructive: app.destructive,
+    bar: tint(.05).withValues(alpha: .86),
+  );
   return base.copyWith(
-    colorScheme: colors,
-    bottomSheetTheme: BottomSheetThemeData(
-      backgroundColor: colors.surfaceContainerLow,
-      modalBackgroundColor: colors.surfaceContainerLow,
+    colorScheme: colors.copyWith(
+      surfaceContainerLow: page.cell,
+      surfaceContainerHigh: page.elevated,
+    ),
+    extensions: [PaletteExtension(page)],
+    bottomSheetTheme: base.bottomSheetTheme.copyWith(
+      backgroundColor: page.elevated,
+      modalBackgroundColor: page.elevated,
     ),
     dialogTheme: DialogThemeData(backgroundColor: colors.surfaceContainerHigh),
     popupMenuTheme: PopupMenuThemeData(color: colors.surfaceContainerHigh),
-  );
-}
-
-class _MenuButton extends StatelessWidget {
-  const _MenuButton(this.icon, this.label, this.onTap);
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) => Expanded(
-    child: InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11.5),
-            ),
-          ],
-        ),
-      ),
-    ),
   );
 }
 
