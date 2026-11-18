@@ -422,7 +422,12 @@ void main() {
       await tester.scrollUntilVisible(
         find.text('Button for next page'),
         200,
-        scrollable: find.byType(Scrollable).last,
+        scrollable: find
+            .descendant(
+              of: find.byKey(const Key('reader-controls')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
       );
       await tester.tap(find.text('Button for next page'));
       await tester.pumpAndSettle();
@@ -432,12 +437,39 @@ void main() {
       );
       await tester.sendKeyEvent(LogicalKeyboardKey.mediaPlayPause);
       await tester.pumpAndSettle();
-      expect(settings.buttons.single.id, LogicalKeyboardKey.mediaPlayPause.keyId);
+      expect(
+        settings.buttons.single.id,
+        LogicalKeyboardKey.mediaPlayPause.keyId,
+      );
       expect(settings.buttons.single.forward, isTrue);
       Navigator.of(tester.element(find.text('Controls'))).pop();
       await tester.pumpAndSettle();
       await press(LogicalKeyboardKey.mediaPlayPause);
       expect(page(), second);
     });
+
+    for (final size in const [Size(320, 568), Size(360, 640)]) {
+      testWidgets('fits a ${size.width.round()}-pt phone with large text', (
+        tester,
+      ) async {
+        tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await open(tester, size: size);
+        // Menu bars.
+        await tester.tapAt(Offset(size.width / 2, 30));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        await tester.tapAt(Offset(size.width / 2, size.height / 2));
+        await tester.pumpAndSettle();
+        // Every settings tab.
+        await tester.tapAt(Offset(size.width / 2, size.height - 20));
+        await tester.pumpAndSettle();
+        for (final tab in ['Layout', 'Theme', 'Controls', 'Status', 'Text']) {
+          await tester.tap(find.text(tab).last);
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull, reason: tab);
+        }
+      });
+    }
   });
 }

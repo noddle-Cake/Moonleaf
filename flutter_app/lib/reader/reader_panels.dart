@@ -24,15 +24,27 @@ extension _Panels on _ReaderScreenState {
             listenable: settings,
             builder: (context, _) => Column(
               children: [
-                const TabBar(
-                  isScrollable: true,
-                  tabAlignment: TabAlignment.center,
+                // Every tab stays visible, shrinking its label on slim phones.
+                TabBar(
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                  labelStyle: TextStyles.subheadline.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  unselectedLabelStyle: TextStyles.subheadline,
                   tabs: [
-                    Tab(text: 'Text'),
-                    Tab(text: 'Layout'),
-                    Tab(text: 'Theme'),
-                    Tab(text: 'Controls'),
-                    Tab(text: 'Status bar'),
+                    for (final label in const [
+                      'Text',
+                      'Layout',
+                      'Theme',
+                      'Controls',
+                      'Status',
+                    ])
+                      Tab(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(label, maxLines: 1),
+                        ),
+                      ),
                   ],
                 ),
                 Expanded(
@@ -54,17 +66,20 @@ extension _Panels on _ReaderScreenState {
     );
   }
 
-  Widget _panel(List<Widget> children) => ListView(
-    padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+  Widget _panel(List<Widget> children, {Key? key}) => ListView(
+    key: key,
+    padding: EdgeInsets.fromLTRB(
+      Space.margin(MediaQuery.sizeOf(_ctx).width),
+      12,
+      Space.margin(MediaQuery.sizeOf(_ctx).width),
+      32,
+    ),
     children: children,
   );
 
   Widget _heading(String text) => Padding(
     padding: const EdgeInsets.only(top: 14, bottom: 6),
-    child: Text(
-      text.toUpperCase(),
-      style: Theme.of(_ctx).textTheme.labelMedium?.copyWith(letterSpacing: 1.3),
-    ),
+    child: Text(text, style: Theme.of(_ctx).textTheme.titleMedium),
   );
 
   Widget _textTab(ReaderSettings settings) => _panel([
@@ -158,7 +173,7 @@ extension _Panels on _ReaderScreenState {
   ]);
 
   Widget _layoutTab(ReaderSettings settings) => _panel([
-    _heading('View mode'),
+    _heading('View Mode'),
     SegmentedButton<ReaderView>(
       segments: const [
         ButtonSegment(
@@ -292,7 +307,7 @@ extension _Panels on _ReaderScreenState {
 
     final dark = Theme.of(_ctx).brightness == Brightness.dark;
     return _panel([
-      _heading('Page color'),
+      _heading('Page Color'),
       Wrap(
         spacing: 14,
         runSpacing: 14,
@@ -309,7 +324,7 @@ extension _Panels on _ReaderScreenState {
             swatch(e.key, e.value.label, e.value.background, e.value.text),
         ],
       ),
-      _heading('Page turns'),
+      _heading('Page Turns'),
       SegmentedButton<PageAnimation>(
         segments: const [
           ButtonSegment(value: PageAnimation.none, label: Text('Instant')),
@@ -345,7 +360,7 @@ extension _Panels on _ReaderScreenState {
   }
 
   Widget _controlsTab(ReaderSettings settings) => _panel([
-    _heading('Tap zones'),
+    _heading('Tap Zones'),
     RadioGroup<TapLayout>(
       groupValue: settings.tapLayout,
       onChanged: (v) => settings.update((s) => s.tapLayout = v!),
@@ -471,7 +486,7 @@ extension _Panels on _ReaderScreenState {
         color: Theme.of(_ctx).colorScheme.onSurfaceVariant,
       ),
     ),
-  ]);
+  ], key: const Key('reader-controls'));
 
   Future<void> _assignButton(
     ReaderSettings settings, {
@@ -497,7 +512,7 @@ extension _Panels on _ReaderScreenState {
       value: settings.footer,
       onChanged: (v) => settings.update((s) => s.footer = v),
     ),
-    _heading('Status bar items'),
+    _heading('Status Bar Items'),
     for (final item in FooterItem.values)
       CheckboxListTile(
         contentPadding: EdgeInsets.zero,

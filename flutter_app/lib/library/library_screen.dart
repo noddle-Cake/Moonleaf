@@ -519,9 +519,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
         Padding(
           padding: const EdgeInsets.all(12),
           child: Text(
-            'RECENTLY OPENED',
+            'Recently Opened',
             style: Theme.of(context).textTheme.labelMedium
-                ?.copyWith(letterSpacing: 1.5),
+                ?.copyWith(fontWeight: FontWeight.w600),
           ),
         ),
         ...novels.map(
@@ -575,9 +575,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
           const SizedBox(height: 36),
           Text(
-            'ENGLISH SOURCES',
+            'Sources',
             style: Theme.of(context).textTheme.labelMedium
-                ?.copyWith(letterSpacing: 1.5),
+                ?.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 16),
           _source(
