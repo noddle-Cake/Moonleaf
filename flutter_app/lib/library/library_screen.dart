@@ -437,75 +437,79 @@ class _TabBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = Palette.of(context);
     final bottom = MediaQuery.viewPaddingOf(context).bottom;
-    return GlassBar(
-      child: Padding(
-        padding: EdgeInsets.only(bottom: bottom > 0 ? bottom - 6 : 4, top: 4),
-        child: Row(
-          children: [
-            for (final t in _Tab.values)
-              Expanded(
-                child: Semantics(
-                  selected: t == current,
-                  button: true,
-                  label: t.label,
-                  excludeSemantics: true,
-                  child: InkResponse(
-                    onTap: () => onSelect(t),
-                    radius: 36,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(minHeight: 49),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              Icon(
-                                t == current ? t.selectedIcon : t.icon,
-                                size: 25,
-                                color: t == current
-                                    ? p.accent
-                                    : p.secondaryLabel,
-                              ),
-                              if (t == badge)
-                                Positioned(
-                                  right: -3,
-                                  top: -1,
-                                  child: Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: BoxDecoration(
-                                      color: p.accent,
-                                      shape: BoxShape.circle,
+    // Tab labels grow only a little with the text size, like on iPhone.
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.3,
+      child: GlassBar(
+        child: Padding(
+          padding: EdgeInsets.only(bottom: bottom > 0 ? bottom - 6 : 4, top: 4),
+          child: Row(
+            children: [
+              for (final t in _Tab.values)
+                Expanded(
+                  child: Semantics(
+                    selected: t == current,
+                    button: true,
+                    label: t.label,
+                    excludeSemantics: true,
+                    child: InkResponse(
+                      onTap: () => onSelect(t),
+                      radius: 36,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 49),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Icon(
+                                  t == current ? t.selectedIcon : t.icon,
+                                  size: 25,
+                                  color: t == current
+                                      ? p.accent
+                                      : p.secondaryLabel,
+                                ),
+                                if (t == badge)
+                                  Positioned(
+                                    right: -3,
+                                    top: -1,
+                                    child: Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                        color: p.accent,
+                                        shape: BoxShape.circle,
+                                      ),
                                     ),
                                   ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            // Labels keep one line on slim phones.
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                t.label,
+                                maxLines: 1,
+                                style: TextStyles.caption2.copyWith(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w500,
+                                  color: t == current
+                                      ? p.accent
+                                      : p.secondaryLabel,
                                 ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          // Labels keep one line on slim phones.
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              t.label,
-                              maxLines: 1,
-                              style: TextStyles.caption2.copyWith(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w500,
-                                color: t == current
-                                    ? p.accent
-                                    : p.secondaryLabel,
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );

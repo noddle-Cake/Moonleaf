@@ -128,7 +128,10 @@ extension _LibraryTab on _LibraryScreenState {
             action: store.novels.isEmpty ? 'Browse Sources' : null,
             onAction: () => _go(_Tab.search),
           )
-        else if (store.grid)
+        // At very large text sizes covers can't fit their captions, so the
+        // library uses the list layout (Apple's Dynamic Type guidance).
+        else if (store.grid &&
+            MediaQuery.textScalerOf(context).scale(10) / 10 <= 1.35)
           SliverPadding(
             padding: EdgeInsets.fromLTRB(side, 8, side, 0),
             sliver: SliverGrid.builder(

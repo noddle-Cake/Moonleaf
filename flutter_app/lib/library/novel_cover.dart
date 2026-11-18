@@ -52,33 +52,43 @@ class NovelCover extends StatelessWidget {
                 ),
               ),
             ),
+            // Cover art is a picture: its title doesn't grow with the
+            // system text size, and shrinks to fit small covers.
             Center(
               child: Padding(
                 padding: const EdgeInsets.all(8),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.auto_stories_outlined,
-                      color: const Color(0xFFE7D8BE),
-                      size: size.maxWidth > 80 ? 32 : 20,
-                    ),
-                    if (!overlay && size.maxHeight > 180) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        novel.title,
-                        maxLines: 4,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontFamily: 'Fraunces',
-                          color: Color(0xFFF5E9D1),
-                          fontSize: 17,
-                          height: 1.2,
-                        ),
+                child: MediaQuery.withNoTextScaling(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: SizedBox(
+                      width: size.maxWidth - 16,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.auto_stories_outlined,
+                            color: const Color(0xFFE7D8BE),
+                            size: size.maxWidth > 80 ? 32 : 20,
+                          ),
+                          if (!overlay && size.maxHeight > 180) ...[
+                            const SizedBox(height: 16),
+                            Text(
+                              novel.title,
+                              maxLines: 4,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontFamily: 'Fraunces',
+                                color: Color(0xFFF5E9D1),
+                                fontSize: 17,
+                                height: 1.2,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    ],
-                  ],
+                    ),
+                  ),
                 ),
               ),
             ),

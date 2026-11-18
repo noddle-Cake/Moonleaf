@@ -139,6 +139,13 @@ class _NovelAppState extends State<NovelApp> {
               ? Duration.zero
               : const Duration(milliseconds: 200),
           builder: (context, child) {
+            // Reduce Motion: pages appear without sliding.
+            if (MediaQuery.disableAnimationsOf(context) && !ereader) {
+              child = Theme(
+                data: withoutMotion(Theme.of(context)),
+                child: child!,
+              );
+            }
             final browser = _browser;
             if (browser != null) {
               child = BrowserHost(loader: browser, child: child!);

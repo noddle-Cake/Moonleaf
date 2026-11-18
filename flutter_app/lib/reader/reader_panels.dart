@@ -1716,25 +1716,29 @@ class _ThemesSheet extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 20),
-            SizedBox(
-              height: 92,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  swatch(
-                    'app',
-                    'Match App',
-                    readerPalettes[dark ? 'dusk' : 'paper']!.background,
-                    readerPalettes[dark ? 'dusk' : 'paper']!.text,
-                  ),
-                  for (final e in readerPalettes.entries)
+            // Swatch labels stay small so the row keeps its height.
+            MediaQuery.withClampedTextScaling(
+              maxScaleFactor: 1.2,
+              child: SizedBox(
+                height: 96,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
                     swatch(
-                      e.key,
-                      e.value.label,
-                      e.value.background,
-                      e.value.text,
+                      'app',
+                      'Match App',
+                      readerPalettes[dark ? 'dusk' : 'paper']!.background,
+                      readerPalettes[dark ? 'dusk' : 'paper']!.text,
                     ),
-                ],
+                    for (final e in readerPalettes.entries)
+                      swatch(
+                        e.key,
+                        e.value.label,
+                        e.value.background,
+                        e.value.text,
+                      ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 16),
