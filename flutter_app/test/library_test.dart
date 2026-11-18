@@ -197,7 +197,9 @@ void main() {
       );
       final store = LibraryStore(novels: [novel]);
       await tester.pumpWidget(NovelApp(store: store));
-      await tester.tap(find.byKey(ValueKey(novel.url)));
+      // At large text sizes the library shows a list instead of covers.
+      expect(find.byKey(ValueKey(novel.url)), findsNothing);
+      await tester.tap(find.byKey(ValueKey('row-${novel.url}')));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       await tester.pageBack();

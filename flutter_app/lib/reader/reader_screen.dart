@@ -1104,7 +1104,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   Widget _body(BoxConstraints box, ReaderPalette pal) {
     final pad = MediaQuery.viewPaddingOf(context);
     // The header and status bar grow with the system text size.
-    final line = MediaQuery.textScalerOf(context).scale(11.5) * 1.35;
+    final line = MediaQuery.textScalerOf(context).scale(11.5) * 1.45;
     final headerH = s.header ? line + 10 : 0.0;
     final footerH = s.footer
         ? line + (s.footerItems.contains(FooterItem.progressBar) ? 13.0 : 4.0)
@@ -1327,6 +1327,9 @@ class _ReaderScreenState extends State<ReaderScreen>
     final state = _state!;
     final title = TextStyles.headline.copyWith(color: p.label);
     final small = TextStyles.caption1.copyWith(color: p.secondaryLabel);
+    // Bar text grows with the text size, up to 1.5x.
+    Widget clamp(Widget child) =>
+        MediaQuery.withClampedTextScaling(maxScaleFactor: 1.5, child: child);
     return [
       // Top: close on the leading edge, the book in the middle, and search
       // and bookmark grouped on the trailing edge.
@@ -1334,58 +1337,60 @@ class _ReaderScreenState extends State<ReaderScreen>
         top: 0,
         left: 0,
         right: 0,
-        child: GlassBar(
-          child: Padding(
-            padding: EdgeInsets.only(
-              top: pad.top,
-              left: pad.left + 4,
-              right: pad.right + 4,
-            ),
-            child: SizedBox(
-              height: 52,
-              child: Row(
-                children: [
-                  IconButton(
-                    tooltip: 'Close book',
-                    icon: const Icon(CupertinoIcons.xmark),
-                    onPressed: () => Navigator.maybePop(context),
-                  ),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          doc.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: title,
-                        ),
-                        Text(
-                          chapterTitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: small,
-                        ),
-                      ],
+        child: clamp(
+          GlassBar(
+            child: Padding(
+              padding: EdgeInsets.only(
+                top: pad.top,
+                left: pad.left + 4,
+                right: pad.right + 4,
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 52),
+                child: Row(
+                  children: [
+                    IconButton(
+                      tooltip: 'Close book',
+                      icon: const Icon(CupertinoIcons.xmark),
+                      onPressed: () => Navigator.maybePop(context),
                     ),
-                  ),
-                  IconButton(
-                    tooltip: 'Search in book',
-                    icon: const Icon(CupertinoIcons.search),
-                    onPressed: _search,
-                  ),
-                  IconButton(
-                    tooltip: _bookmarked
-                        ? 'Remove bookmark'
-                        : 'Bookmark this page',
-                    icon: Icon(
-                      _bookmarked
-                          ? CupertinoIcons.bookmark_fill
-                          : CupertinoIcons.bookmark,
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            doc.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: title,
+                          ),
+                          Text(
+                            chapterTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: small,
+                          ),
+                        ],
+                      ),
                     ),
-                    onPressed: _toggleBookmark,
-                  ),
-                ],
+                    IconButton(
+                      tooltip: 'Search in book',
+                      icon: const Icon(CupertinoIcons.search),
+                      onPressed: _search,
+                    ),
+                    IconButton(
+                      tooltip: _bookmarked
+                          ? 'Remove bookmark'
+                          : 'Bookmark this page',
+                      icon: Icon(
+                        _bookmarked
+                            ? CupertinoIcons.bookmark_fill
+                            : CupertinoIcons.bookmark,
+                      ),
+                      onPressed: _toggleBookmark,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1396,86 +1401,88 @@ class _ReaderScreenState extends State<ReaderScreen>
         left: 0,
         right: 0,
         bottom: 0,
-        child: GlassBar(
-          child: Padding(
-            padding: EdgeInsets.only(
-              bottom: pad.bottom + 4,
-              left: pad.left + 4,
-              right: pad.right + 4,
-              top: 8,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '$pages · ${(_shownProgress * 100).toStringAsFixed(1)}%',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: small,
-                ),
-                Row(
-                  children: [
-                    IconButton(
-                      tooltip: 'Contents',
-                      icon: const Icon(CupertinoIcons.list_bullet),
-                      onPressed: () => _navigate(0),
-                    ),
-                    Expanded(child: _Skimmer(this)),
-                    IconButton(
-                      tooltip: 'Themes & Settings',
-                      icon: const Icon(CupertinoIcons.textformat_size),
-                      onPressed: _themes,
-                    ),
-                    PopupMenuButton<String>(
-                      tooltip: 'More',
-                      icon: const Icon(CupertinoIcons.ellipsis_circle),
-                      onSelected: (v) => switch (v) {
-                        'notes' => _navigate(1),
-                        'goto' => _goToDialog(),
-                        'previous' => _goTo(_chapter - 1, 0, remember: false),
-                        'next' => _goTo(_chapter + 1, 0, remember: false),
-                        'stats' => _stats(),
-                        'info' => _info(),
-                        'export' => _exportNotes(),
-                        _ => null,
-                      },
-                      itemBuilder: (_) => [
-                        const PopupMenuItem(
-                          value: 'notes',
-                          child: Text('Bookmarks & Highlights'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'goto',
-                          child: Text('Go to Page or %'),
-                        ),
-                        PopupMenuItem(
-                          value: 'previous',
-                          enabled: _chapter > 0,
-                          child: const Text('Previous Chapter'),
-                        ),
-                        PopupMenuItem(
-                          value: 'next',
-                          enabled: _chapter + 1 < doc.chapters.length,
-                          child: const Text('Next Chapter'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'stats',
-                          child: Text('Reading Statistics'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'info',
-                          child: Text('Book Information'),
-                        ),
-                        PopupMenuItem(
-                          value: 'export',
-                          enabled: state.highlights.isNotEmpty,
-                          child: const Text('Copy Highlights & Notes'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
+        child: clamp(
+          GlassBar(
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: pad.bottom + 4,
+                left: pad.left + 4,
+                right: pad.right + 4,
+                top: 8,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '$pages · ${(_shownProgress * 100).toStringAsFixed(1)}%',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: small,
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        tooltip: 'Contents',
+                        icon: const Icon(CupertinoIcons.list_bullet),
+                        onPressed: () => _navigate(0),
+                      ),
+                      Expanded(child: _Skimmer(this)),
+                      IconButton(
+                        tooltip: 'Themes & Settings',
+                        icon: const Icon(CupertinoIcons.textformat_size),
+                        onPressed: _themes,
+                      ),
+                      PopupMenuButton<String>(
+                        tooltip: 'More',
+                        icon: const Icon(CupertinoIcons.ellipsis_circle),
+                        onSelected: (v) => switch (v) {
+                          'notes' => _navigate(1),
+                          'goto' => _goToDialog(),
+                          'previous' => _goTo(_chapter - 1, 0, remember: false),
+                          'next' => _goTo(_chapter + 1, 0, remember: false),
+                          'stats' => _stats(),
+                          'info' => _info(),
+                          'export' => _exportNotes(),
+                          _ => null,
+                        },
+                        itemBuilder: (_) => [
+                          const PopupMenuItem(
+                            value: 'notes',
+                            child: Text('Bookmarks & Highlights'),
+                          ),
+                          const PopupMenuItem(
+                            value: 'goto',
+                            child: Text('Go to Page or %'),
+                          ),
+                          PopupMenuItem(
+                            value: 'previous',
+                            enabled: _chapter > 0,
+                            child: const Text('Previous Chapter'),
+                          ),
+                          PopupMenuItem(
+                            value: 'next',
+                            enabled: _chapter + 1 < doc.chapters.length,
+                            child: const Text('Next Chapter'),
+                          ),
+                          const PopupMenuItem(
+                            value: 'stats',
+                            child: Text('Reading Statistics'),
+                          ),
+                          const PopupMenuItem(
+                            value: 'info',
+                            child: Text('Book Information'),
+                          ),
+                          PopupMenuItem(
+                            value: 'export',
+                            enabled: state.highlights.isNotEmpty,
+                            child: const Text('Copy Highlights & Notes'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),

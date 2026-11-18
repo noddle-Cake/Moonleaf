@@ -248,6 +248,16 @@ ThemeData novelTheme(Brightness brightness, {bool ereader = false}) {
   );
 }
 
+/// The theme with instant page transitions, for Reduce Motion.
+ThemeData withoutMotion(ThemeData theme) => theme.copyWith(
+  pageTransitionsTheme: PageTransitionsTheme(
+    builders: {
+      for (final platform in TargetPlatform.values)
+        platform: const _StillPageTransition(),
+    },
+  ),
+);
+
 class _StillPageTransition extends PageTransitionsBuilder {
   const _StillPageTransition();
   @override
