@@ -6,6 +6,7 @@ import 'add_novel_dialog.dart';
 import 'library_store.dart';
 import 'novel_cover.dart';
 import 'novel_detail_screen.dart';
+import '../browser/browser_loader.dart';
 import 'downloads.dart';
 import 'reading.dart';
 
@@ -550,7 +551,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
           const SizedBox(height: 10),
           Text(
-            'Light novels, one source at a time.',
+            'Web novels, fan fiction and classics.',
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -587,6 +588,38 @@ class _LibraryScreenState extends State<LibraryScreen> {
             const Color(0xFFE5B567),
           ),
           _source(
+            'Scribble Hub',
+            browserSupported
+                ? 'Original web novels · may ask for a quick human check'
+                : 'Original web novels · needs the Android, iOS or macOS app',
+            'SH',
+            'https://www.scribblehub.com',
+            const Color(0xFF7FB7C9),
+          ),
+          _source(
+            'FanFiction.net',
+            browserSupported
+                ? 'Fan fiction & FictionPress · may ask for a quick human check'
+                : 'Fan fiction · needs the Android, iOS or macOS app',
+            'FF',
+            'https://www.fanfiction.net',
+            const Color(0xFF8FA6D6),
+          ),
+          _source(
+            'AO3',
+            'Archive of Our Own · uses AO3’s own EPUB',
+            'AO3',
+            'https://archiveofourown.org',
+            const Color(0xFFD98C8C),
+          ),
+          _source(
+            'Standard Ebooks',
+            'Free public-domain classics · uses their EPUB',
+            'SE',
+            'https://standardebooks.org',
+            const Color(0xFF9CC58F),
+          ),
+          _source(
             'RoliaScan',
             'Translated light novels',
             'RS',
@@ -607,7 +640,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   const SizedBox(width: 16),
                   const Expanded(
                     child: Text(
-                      'Browse a source in your browser, then paste a novel page here to save it. Only publicly accessible text novels are supported.',
+                      'Browse a source in your browser, then paste a novel page or any chapter link here. Moonleaf saves it and downloads the chapters. Only publicly accessible text stories are supported.',
                       style: TextStyle(height: 1.5),
                     ),
                   ),

@@ -65,7 +65,7 @@ class _AddNovelDialogState extends State<AddNovelDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Paste a novel page, or a link to any of its chapters, from Royal Road or RoliaScan. Moonleaf adds it to your library and downloads the chapters so you can start reading.',
+                'Paste a novel page, or a link to any of its chapters, from a supported site, such as Royal Road, Scribble Hub, FanFiction.net or AO3. Moonleaf adds it to your library and downloads the chapters so you can start reading.',
               ),
               const SizedBox(height: 20),
               TextField(
@@ -79,7 +79,7 @@ class _AddNovelDialogState extends State<AddNovelDialog> {
                 },
                 decoration: const InputDecoration(
                   labelText: 'Novel or chapter URL',
-                  hintText: 'https://roliascan.com/manga/…',
+                  hintText: 'https://www.royalroad.com/fiction/…',
                 ),
               ),
               if (_error != null)

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/novel_service.dart';
+import '../data/site_extractors.dart';
 
 enum AppAppearance { system, light, dark, ereaderLight, ereaderDark }
 
@@ -40,11 +41,15 @@ class LibraryNovel {
 
   /// Imported EPUB files use `epub:` identifiers instead of web addresses.
   bool get isLocal => url.startsWith('epub:');
-  String get source => isLocal
-      ? 'EPUB file'
-      : Uri.parse(url).host.contains('royalroad')
-      ? 'Royal Road'
-      : 'RoliaScan';
+  String get source {
+    if (isLocal) return 'EPUB file';
+    try {
+      return extractorFor(Uri.parse(url)).name;
+    } catch (_) {
+      return Uri.tryParse(url)?.host ?? 'Web';
+    }
+  }
+
   BookMetadata get metadata => BookMetadata(
     title: title,
     author: author,

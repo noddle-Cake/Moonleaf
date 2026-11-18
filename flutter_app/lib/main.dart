@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'browser/browser_loader.dart';
 import 'data/novel_api.dart';
 import 'data/local_novel_service.dart';
 import 'library/downloads.dart';
@@ -30,11 +31,17 @@ class _NovelAppState extends State<NovelApp> {
   late final NovelService _service;
   LibraryStore? _store;
   DownloadManager? _downloads;
+
+  /// Loads pages for sites with a human check (Android, iOS and macOS).
+  BrowserLoader? _browser;
   String? _loadError;
   @override
   void initState() {
     super.initState();
-    _service = widget.service ?? (kIsWeb ? NovelApi() : LocalNovelService());
+    if (widget.service == null && browserSupported) _browser = BrowserLoader();
+    _service =
+        widget.service ??
+        (kIsWeb ? NovelApi() : LocalNovelService(browser: _browser));
     _store = widget.store;
     if (_store == null) {
       _load();
@@ -77,6 +84,7 @@ class _NovelAppState extends State<NovelApp> {
   @override
   void dispose() {
     _downloads?.dispose();
+    _browser?.dispose();
     if (widget.service == null) _service.close();
     if (widget.store == null) _store?.dispose();
     super.dispose();
@@ -131,6 +139,10 @@ class _NovelAppState extends State<NovelApp> {
               ? Duration.zero
               : const Duration(milliseconds: 200),
           builder: (context, child) {
+            final browser = _browser;
+            if (browser != null) {
+              child = BrowserHost(loader: browser, child: child!);
+            }
             if (!ereader) return child!;
             return MediaQuery(
               data: MediaQuery.of(

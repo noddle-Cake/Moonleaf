@@ -50,3 +50,15 @@ First-run libraries and published previews are empty. Do not seed books, use
 personal reading selections in examples, or capture an existing user's library
 for screenshots. Reader previews and tests use a generated book of original
 filler text. Live smoke checks require an explicitly supplied URL.
+
+## Sources
+
+Only sites where authors publish their own work, or that offer downloads, are
+supported. Aggregators of unlicensed translations are not added, and Wattpad
+is left out because its terms prohibit scraping. Scribble Hub and
+FanFiction.net block plain requests with Cloudflare checks. Their pages load
+in a WebView, like Mihon's approach: the person completes any check
+themselves, and chapters load one at a time with a pause between pages. AO3
+and Standard Ebooks provide their own EPUB files, which Moonleaf downloads
+unchanged.
+
