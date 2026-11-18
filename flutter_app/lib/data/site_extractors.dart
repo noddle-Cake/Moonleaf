@@ -181,40 +181,6 @@ NovelChapter parseChapter(
 
 class RoliaExtractor extends SiteExtractor {
   const RoliaExtractor();
-
-  static bool _isNovelPage(Uri url) {
-    final s = _segments(url);
-    return url.host.toLowerCase().replaceFirst(RegExp(r'^www\.'), '') ==
-            'roliascan.com' &&
-        ['http', 'https'].contains(url.scheme) &&
-        s.length == 2 &&
-        s[0] == 'manga';
-  }
-
-  @override
-  bool isChapter(Uri url) {
-    final s = _segments(url);
-    return s.length >= 3 && s[0] == 'read';
-  }
-
-  @override
-  Uri? novelFromChapter(String source, Uri chapter) {
-    final doc = html.parse(source);
-    final fromCrumbs = _breadcrumbParent(doc, chapter, _isNovelPage);
-    if (fromCrumbs != null) return fromCrumbs;
-    final slug = _segments(chapter)[1];
-    final links = doc
-        .querySelectorAll('a[href*="/manga/"]')
-        .map((a) => resolveLink(chapter, a.attributes['href']))
-        .whereType<Uri>()
-        .where(_isNovelPage)
-        .toList();
-    // Prefer the link for this chapter's own novel over sidebar suggestions.
-    return links.where((u) => _segments(u)[1] == slug).firstOrNull ??
-        (links.length == 1 ? links.single : null) ??
-        _page(chapter, '/manga/$slug/');
-  }
-
   @override
   String get name => 'RoliaScan';
 
@@ -311,48 +277,6 @@ class RoliaExtractor extends SiteExtractor {
 
 class RoyalRoadExtractor extends SiteExtractor {
   const RoyalRoadExtractor();
-
-  @override
-  bool isChapter(Uri url) {
-    final s = _segments(url);
-    return s.isNotEmpty && s[0] == 'fiction' && s.contains('chapter');
-  }
-
-  /// `/fiction/<id>/<slug>/chapter/<id>/<slug>` → `/fiction/<id>/<slug>`.
-  @override
-  Uri? novelFromPath(Uri chapter) {
-    final s = _segments(chapter);
-    final at = s.indexOf('chapter');
-    if (at < 2 || int.tryParse(s[1]) == null) return null;
-    return _page(chapter, '/${s.sublist(0, at).join('/')}');
-  }
-
-  /// Short links such as `/fiction/chapter/<id>` name only the chapter, so
-  /// read the full address from the page itself.
-  @override
-  Uri? novelFromChapter(String source, Uri chapter) {
-    final doc = html.parse(source);
-    for (final href in [
-      doc.querySelector('link[rel="canonical"]')?.attributes['href'],
-      doc.querySelector('meta[property="og:url"]')?.attributes['content'],
-    ]) {
-      final full = resolveLink(chapter, href);
-      final novel = full == null ? null : novelFromPath(full);
-      if (novel != null) return novel;
-    }
-    for (final a in doc.querySelectorAll('a[href^="/fiction/"]')) {
-      final link = resolveLink(chapter, a.attributes['href']);
-      final s = link == null ? const <String>[] : _segments(link);
-      if (link != null &&
-          s.length >= 2 &&
-          !s.contains('chapter') &&
-          int.tryParse(s[1]) != null) {
-        return _page(link, link.path);
-      }
-    }
-    return null;
-  }
-
   @override
   String get name => 'Royal Road';
 
