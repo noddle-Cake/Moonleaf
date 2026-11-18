@@ -81,7 +81,13 @@ downloading, and reading a novel:
 - Page colors: Paper, Sepia, Sage, Dusk, Night, E-ink, and E-ink dark, or match
   the app appearance.
 - Configurable tap zones (standard, left-handed, or tap anywhere to go
-  forward), swipes, pinch-to-zoom text, keyboard, mouse wheel, and volume keys.
+  forward), swipes, pinch-to-zoom text, and mouse wheel.
+- Hardware buttons (**Typeset → Controls → Buttons**): volume buttons turn
+  pages (reversible, and they don't change the volume while reading);
+  keyboards and Bluetooth page turners work with arrows, Page Up/Down, Space,
+  and media next/previous; and any other button, such as e-reader page keys,
+  a camera key, or a remote's buttons, can be assigned to next or previous
+  page by pressing it. The power button is reserved by the device.
 - A status bar with page numbers, pages and time left in the chapter or book,
   progress, chapter title, clock, and a progress bar with chapter marks.
 - Contents, bookmarks, highlights in several colors with notes, full-text

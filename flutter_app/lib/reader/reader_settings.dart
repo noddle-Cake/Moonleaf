@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 enum ReaderView { paged, scroll }
@@ -10,6 +11,57 @@ enum TextAlignment { justify, left }
 enum TapLayout { standard, inverted, forwardAnywhere }
 
 enum PageAnimation { none, slide, fade }
+
+enum KeyAction { next, previous, menu }
+
+/// A hardware button the person assigned to turning pages.
+class ButtonMapping {
+  const ButtonMapping(this.id, this.label, this.forward);
+  final int id;
+  final String label;
+  final bool forward;
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'label': label,
+    'forward': forward,
+  };
+  static ButtonMapping? fromJson(Object? value) {
+    if (value is! Map) return null;
+    final id = value['id'];
+    if (id is! int) return null;
+    return ButtonMapping(
+      id,
+      value['label'] as String? ?? 'Button',
+      value['forward'] as bool? ?? true,
+    );
+  }
+}
+
+/// A readable name for a key or button.
+String buttonLabel(LogicalKeyboardKey key) {
+  final label = key.keyLabel.trim();
+  if (label.isNotEmpty && label != ' ') return label;
+  if (key == LogicalKeyboardKey.space) return 'Space';
+  return 'Button ${key.keyId.toRadixString(16)}';
+}
+
+/// Keys that turn pages when "Keyboards and page turners" is on. Bluetooth
+/// page turners usually send arrows, Page Up/Down, Space or media keys.
+final _forwardKeys = {
+  LogicalKeyboardKey.arrowRight,
+  LogicalKeyboardKey.arrowDown,
+  LogicalKeyboardKey.pageDown,
+  LogicalKeyboardKey.space,
+  LogicalKeyboardKey.mediaTrackNext,
+  LogicalKeyboardKey.mediaFastForward,
+};
+final _backKeys = {
+  LogicalKeyboardKey.arrowLeft,
+  LogicalKeyboardKey.arrowUp,
+  LogicalKeyboardKey.pageUp,
+  LogicalKeyboardKey.mediaTrackPrevious,
+  LogicalKeyboardKey.mediaRewind,
+};
 
 enum FooterItem {
   pageInChapter('Page in chapter'),
@@ -146,6 +198,12 @@ class ReaderSettings extends ChangeNotifier {
   TapLayout tapLayout = TapLayout.standard;
   double backZone = .3;
   bool swipe = true, pinch = true, keys = true, fullscreen = true;
+
+  /// Volume buttons turn pages (volume down goes forward unless reversed).
+  bool volumeKeys = true, invertVolume = false;
+
+  /// Other buttons the person assigned to turning pages.
+  List<ButtonMapping> buttons = [];
   bool header = true, footer = true;
   Set<FooterItem> footerItems = {
     FooterItem.clock,
@@ -207,6 +265,15 @@ class ReaderSettings extends ChangeNotifier {
     swipe = d['swipe'] as bool? ?? swipe;
     pinch = d['pinch'] as bool? ?? pinch;
     keys = d['keys'] as bool? ?? keys;
+    volumeKeys = d['volumeKeys'] as bool? ?? volumeKeys;
+    invertVolume = d['invertVolume'] as bool? ?? invertVolume;
+    final saved = d['buttons'];
+    if (saved is List) {
+      buttons = saved
+          .map(ButtonMapping.fromJson)
+          .whereType<ButtonMapping>()
+          .toList();
+    }
     fullscreen = d['fullscreen'] as bool? ?? fullscreen;
     header = d['header'] as bool? ?? header;
     footer = d['footer'] as bool? ?? footer;
@@ -244,6 +311,9 @@ class ReaderSettings extends ChangeNotifier {
     'swipe': swipe,
     'pinch': pinch,
     'keys': keys,
+    'volumeKeys': volumeKeys,
+    'invertVolume': invertVolume,
+    'buttons': buttons.map((b) => b.toJson()).toList(),
     'fullscreen': fullscreen,
     'header': header,
     'footer': footer,
@@ -269,6 +339,39 @@ class ReaderSettings extends ChangeNotifier {
     header,
     footer,
   ]);
+
+  /// What a pressed key does in the reader, if anything. Assigned buttons
+  /// win over the built-in keys.
+  KeyAction? actionFor(LogicalKeyboardKey key) {
+    for (final b in buttons) {
+      if (b.id == key.keyId) {
+        return b.forward ? KeyAction.next : KeyAction.previous;
+      }
+    }
+    if (key == LogicalKeyboardKey.audioVolumeDown ||
+        key == LogicalKeyboardKey.audioVolumeUp) {
+      if (!volumeKeys) return null;
+      final forward =
+          (key == LogicalKeyboardKey.audioVolumeDown) != invertVolume;
+      return forward ? KeyAction.next : KeyAction.previous;
+    }
+    if (!keys) return null;
+    if (_forwardKeys.contains(key)) return KeyAction.next;
+    if (_backKeys.contains(key)) return KeyAction.previous;
+    if (key == LogicalKeyboardKey.keyM || key == LogicalKeyboardKey.enter) {
+      return KeyAction.menu;
+    }
+    return null;
+  }
+
+  /// Assigns a button, replacing any earlier use of the same button.
+  void assignButton(LogicalKeyboardKey key, {required bool forward}) => update(
+    (s) => s.buttons = [
+      for (final b in s.buttons)
+        if (b.id != key.keyId) b,
+      ButtonMapping(key.keyId, buttonLabel(key), forward),
+    ],
+  );
 
   void update(void Function(ReaderSettings s) change) {
     change(this);
