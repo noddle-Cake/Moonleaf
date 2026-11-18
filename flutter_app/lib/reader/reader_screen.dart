@@ -450,6 +450,15 @@ class _ReaderScreenState extends State<ReaderScreen>
     widget.onProgress?.call(_progress);
   }
 
+  /// Progress as shown to the reader: by page once book pages are counted,
+  /// like KOReader, otherwise by characters.
+  double get _shownProgress {
+    if (_counted && !_scrollMode && _bookPages > 0) {
+      return (_bookPage / _bookPages).clamp(0.0, 1.0);
+    }
+    return _progress;
+  }
+
   double get _progress {
     if (doc.length == 0) return 0;
     final info = _scrollMode ? null : _pageInfo;
@@ -853,7 +862,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     }
     if (items.contains(FooterItem.bookPercent)) {
       parts.add(
-        '${(_progress * 100).toStringAsFixed(_progress < .1 ? 1 : 0)}%',
+        '${(_shownProgress * 100).toStringAsFixed(_shownProgress < .1 ? 1 : 0)}%',
       );
     }
     if (items.contains(FooterItem.bookmarks)) {
@@ -906,7 +915,7 @@ class _ReaderScreenState extends State<ReaderScreen>
               height: 4,
               width: double.infinity,
               child: CustomPaint(
-                painter: _ProgressPainter(_progress, [
+                painter: _ProgressPainter(_shownProgress, [
                   for (final t in doc.toc.where((t) => t.depth == 0))
                     doc.progressOf(t.chapter, t.offset),
                 ], palette),
@@ -1445,7 +1454,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                   ],
                 ),
                 Text(
-                  '$pages · ${(_progress * 100).toStringAsFixed(1)}%',
+                  '$pages · ${(_shownProgress * 100).toStringAsFixed(1)}%',
                   style: TextStyle(
                     fontSize: 12,
                     color: colors.onSurfaceVariant,

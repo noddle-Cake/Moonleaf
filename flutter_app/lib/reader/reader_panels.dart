@@ -1173,7 +1173,7 @@ extension _Panels on _ReaderScreenState {
                 spacing: 16,
                 runSpacing: 20,
                 children: [
-                  stat('${(_progress * 100).toStringAsFixed(1)}%', 'Read'),
+                  stat('${(_shownProgress * 100).toStringAsFixed(1)}%', 'Read'),
                   stat(time(state.seconds), 'Time reading'),
                   stat(time(state.daily[key(today)] ?? 0), 'Today'),
                   stat(
