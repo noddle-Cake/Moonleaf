@@ -284,11 +284,11 @@ void main() {
       await tester.tapAt(const Offset(195, 40));
       await tester.pumpAndSettle();
       expect(find.text('The Lantern Keeper'), findsOneWidget);
-      expect(find.text('Contents'), findsOneWidget);
+      expect(find.byTooltip('Contents'), findsOneWidget);
       await tester.tap(find.byTooltip('Bookmark this page'));
       await tester.pumpAndSettle();
       expect(find.byTooltip('Remove bookmark'), findsOneWidget);
-      await tester.tap(find.text('Contents'));
+      await tester.tap(find.byTooltip('Contents'));
       await tester.pumpAndSettle();
       expect(find.text('Chapter 3'), findsOneWidget);
       await tester.tap(find.text('Chapter 3'));
@@ -313,14 +313,19 @@ void main() {
       final settings = await open(tester);
       await tester.tapAt(const Offset(195, 820));
       await tester.pumpAndSettle();
-      expect(find.text('Font size'), findsOneWidget);
+      expect(find.text('Themes & Settings'), findsOneWidget);
       await tester.tap(find.byTooltip('Increase font size'));
       await tester.runAsync(
         () => Future.delayed(const Duration(milliseconds: 50)),
       );
       await tester.pumpAndSettle();
       expect(settings.fontSize, 20);
-      await tester.tap(find.text('Theme'));
+      // Themes sit in a horizontal row, like Apple Books.
+      await tester.dragUntilVisible(
+        find.text('Night'),
+        find.text('Paper'),
+        const Offset(-150, 0),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Night'));
       await tester.runAsync(
@@ -328,9 +333,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(settings.palette, 'night');
-      await tester.tap(find.text('Layout'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Continuous'));
+      await tester.tap(find.text('Scroll'));
       await tester.runAsync(
         () => Future.delayed(const Duration(milliseconds: 50)),
       );
@@ -360,7 +363,9 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tapAt(const Offset(195, 40));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Notes'));
+      await tester.tap(find.byTooltip('More'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Bookmarks & Highlights'));
       await tester.pumpAndSettle();
       await tester.tap(find.textContaining('Highlights ('));
       await tester.pumpAndSettle();
@@ -414,8 +419,10 @@ void main() {
       await press(LogicalKeyboardKey.audioVolumeDown);
       expect(page(), start);
 
-      // Assign another button from the reader's Controls settings.
+      // Assign another button: Themes & Settings → Customize → Controls.
       await tester.tapAt(const Offset(195, 820));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Customize…'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Controls'));
       await tester.pumpAndSettle();
@@ -461,8 +468,12 @@ void main() {
         expect(tester.takeException(), isNull);
         await tester.tapAt(Offset(size.width / 2, size.height / 2));
         await tester.pumpAndSettle();
-        // Every settings tab.
+        // Themes & Settings, then every detailed settings tab.
         await tester.tapAt(Offset(size.width / 2, size.height - 20));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull, reason: 'Themes & Settings');
+        await tester.ensureVisible(find.text('Customize…'));
+        await tester.tap(find.text('Customize…'));
         await tester.pumpAndSettle();
         for (final tab in ['Layout', 'Theme', 'Controls', 'Status', 'Text']) {
           await tester.tap(find.text(tab).last);
@@ -471,5 +482,24 @@ void main() {
         }
       });
     }
+
+    testWidgets('screen readers can read the page', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await open(tester);
+      // The title page, then chapter text after turning the page.
+      expect(find.bySemanticsLabel(RegExp('The Lantern Keeper')), findsWidgets);
+      for (var i = 0; i < 1; i++) {
+        await tester.tapAt(const Offset(370, 420));
+        await tester.runAsync(
+          () => Future.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pumpAndSettle();
+      }
+      expect(
+        find.bySemanticsLabel(RegExp('Lantern 1 of chapter 1 flickered')),
+        findsOneWidget,
+      );
+      semantics.dispose();
+    });
   });
 }

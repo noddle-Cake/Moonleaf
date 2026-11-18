@@ -206,6 +206,11 @@ class Palette {
 
   bool get eink => identical(this, einkLight) || identical(this, einkDark);
 
+  /// The palette carried by a theme.
+  static Palette ofTheme(ThemeData theme) =>
+      theme.extension<PaletteExtension>()?.palette ??
+      (theme.brightness == Brightness.dark ? darkMode : light);
+
   static Palette of(BuildContext context) =>
       Theme.of(context).extension<PaletteExtension>()?.palette ??
       (Theme.of(context).brightness == Brightness.dark ? darkMode : light);

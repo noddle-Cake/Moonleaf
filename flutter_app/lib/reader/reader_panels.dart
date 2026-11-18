@@ -4,6 +4,24 @@ extension _Panels on _ReaderScreenState {
   void _refresh() => _rebuild();
 
   // ---------------------------------------------------------------------------
+  // Themes & Settings: the quick sheet, like Apple Books. Customize opens the
+  // full KOReader-level settings below.
+
+  Future<void> _themes() async {
+    _setMenu(false);
+    final settings = s;
+    final customize = await showAppleSheet<bool>(
+      context: _ctx,
+      barrierColor: Colors.black12,
+      builder: (context, _) => ListenableBuilder(
+        listenable: settings,
+        builder: (context, _) => _ThemesSheet(settings: settings),
+      ),
+    );
+    if (customize == true) await _typeset();
+  }
+
+  // ---------------------------------------------------------------------------
   // Typesetting, theme, controls and status bar (KOReader's bottom menu).
 
   Future<void> _typeset({int tab = 0}) async {
@@ -564,6 +582,7 @@ extension _Panels on _ReaderScreenState {
 
   Future<void> _navigate(int tab) async {
     _setMenu(false);
+    var section = tab;
     final state = _state!;
     final current = doc.toc.lastIndexWhere(
       (t) =>
@@ -583,15 +602,40 @@ extension _Panels on _ReaderScreenState {
           child: StatefulBuilder(
             builder: (context, setSheet) => Column(
               children: [
-                TabBar(
-                  tabs: [
-                    const Tab(text: 'Contents'),
-                    Tab(text: 'Bookmarks (${state.bookmarks.length})'),
-                    Tab(text: 'Highlights (${state.highlights.length})'),
-                  ],
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: CupertinoSlidingSegmentedControl<int>(
+                      groupValue: section,
+                      backgroundColor: Palette.of(context).fill,
+                      thumbColor: Palette.of(context).cell,
+                      onValueChanged: (v) => setSheet(() => section = v ?? 0),
+                      children: {
+                        for (final (i, label) in [
+                          'Contents',
+                          'Bookmarks (${state.bookmarks.length})',
+                          'Highlights (${state.highlights.length})',
+                        ].indexed)
+                          i: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                label,
+                                style: TextStyles.subheadline.copyWith(
+                                  color: Palette.of(context).label,
+                                ),
+                              ),
+                            ),
+                          ),
+                      },
+                    ),
+                  ),
                 ),
                 Expanded(
-                  child: TabBarView(
+                  child: IndexedStack(
+                    index: section,
                     children: [
                       ListView.builder(
                         controller: ScrollController(
@@ -706,10 +750,12 @@ extension _Panels on _ReaderScreenState {
                                     ),
                                     trailing: IconButton(
                                       tooltip: 'Edit highlight',
-                                      icon: const Icon(Icons.more_vert),
-                                      onPressed: () async {
-                                        await _editHighlight(h);
-                                        setSheet(() {});
+                                      icon: const Icon(CupertinoIcons.ellipsis),
+                                      // One sheet at a time: close this
+                                      // list before editing.
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                        _editHighlight(h);
                                       },
                                     ),
                                     onTap: () {
@@ -1530,4 +1576,256 @@ class _ButtonCapture extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// The quick Themes & Settings sheet: font size, page color, page turns and
+/// font, with Customize leading to every option.
+class _ThemesSheet extends StatelessWidget {
+  const _ThemesSheet({required this.settings});
+  final ReaderSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    final side = Space.margin(MediaQuery.sizeOf(context).width);
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final turn = settings.view == ReaderView.scroll
+        ? 'scroll'
+        : settings.animation.name;
+    Widget swatch(String key, String label, Color bg, Color fg) {
+      final selected = settings.palette == key;
+      return Padding(
+        padding: const EdgeInsets.only(right: 12),
+        child: Semantics(
+          button: true,
+          selected: selected,
+          label: '$label theme',
+          excludeSemantics: true,
+          child: GestureDetector(
+            onTap: () => settings.update((s) => s.palette = key),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: bg,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      width: selected ? 3 : 1,
+                      color: selected ? p.accent : p.separator,
+                    ),
+                  ),
+                  child: Text(
+                    'Aa',
+                    style: TextStyle(
+                      color: fg,
+                      fontFamily: 'Fraunces',
+                      fontSize: 22,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  label,
+                  style: TextStyles.caption1.copyWith(color: p.label),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final fontButton = TextButton.styleFrom(
+      foregroundColor: p.label,
+      minimumSize: const Size(minTarget * 1.6, minTarget + 6),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      backgroundColor: p.fill,
+    );
+    return SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(side, 0, side, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Themes & Settings',
+                    style: TextStyles.title3.copyWith(color: p.label),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Close',
+                  icon: Icon(
+                    CupertinoIcons.xmark_circle_fill,
+                    color: p.tertiaryLabel,
+                    size: 28,
+                  ),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Font size: small A and large A, like Apple Books.
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    style: fontButton,
+                    onPressed: settings.fontSize <= 10
+                        ? null
+                        : () => settings.update(
+                            (s) => s.fontSize = (s.fontSize - 1).clamp(10, 48),
+                          ),
+                    child: Tooltip(
+                      message: 'Decrease font size',
+                      child: Text('A', style: TextStyles.subheadline),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Text(
+                    '${settings.fontSize.round()} pt',
+                    style: TextStyles.subheadline.copyWith(
+                      color: p.secondaryLabel,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: TextButton(
+                    style: fontButton,
+                    onPressed: settings.fontSize >= 48
+                        ? null
+                        : () => settings.update(
+                            (s) => s.fontSize = (s.fontSize + 1).clamp(10, 48),
+                          ),
+                    child: Tooltip(
+                      message: 'Increase font size',
+                      child: Text('A', style: TextStyles.title2),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              height: 92,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  swatch(
+                    'app',
+                    'Match App',
+                    readerPalettes[dark ? 'dusk' : 'paper']!.background,
+                    readerPalettes[dark ? 'dusk' : 'paper']!.text,
+                  ),
+                  for (final e in readerPalettes.entries)
+                    swatch(
+                      e.key,
+                      e.value.label,
+                      e.value.background,
+                      e.value.text,
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Page Turns',
+              style: TextStyles.footnote.copyWith(color: p.secondaryLabel),
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              width: double.infinity,
+              child: CupertinoSlidingSegmentedControl<String>(
+                groupValue: turn,
+                thumbColor: p.cell,
+                backgroundColor: p.fill,
+                children: {
+                  for (final (value, label) in const [
+                    ('none', 'Instant'),
+                    ('slide', 'Slide'),
+                    ('fade', 'Fade'),
+                    ('scroll', 'Scroll'),
+                  ])
+                    value: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          label,
+                          style: TextStyles.subheadline.copyWith(
+                            color: p.label,
+                          ),
+                        ),
+                      ),
+                    ),
+                },
+                onValueChanged: (v) => settings.update((s) {
+                  if (v == 'scroll') {
+                    s.view = ReaderView.scroll;
+                  } else if (v != null) {
+                    s.view = ReaderView.paged;
+                    s.animation = PageAnimation.values.byName(v);
+                  }
+                }),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Font',
+              style: TextStyles.footnote.copyWith(color: p.secondaryLabel),
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              height: 44,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  for (final entry in builtInFonts.entries)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        showCheckmark: false,
+                        label: Text(
+                          entry.value.label,
+                          style: TextStyle(
+                            fontFamily: entry.value.family,
+                            fontFamilyFallback: entry.value.fallback,
+                          ),
+                        ),
+                        selected: settings.font == entry.key,
+                        onSelected: (_) =>
+                            settings.update((s) => s.font = entry.key),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            GroupedSection(
+              margin: EdgeInsets.zero,
+              children: [
+                GroupedRow(
+                  icon: CupertinoIcons.slider_horizontal_3,
+                  title: 'Customize…',
+                  subtitle: 'Spacing, margins, buttons, status bar and more',
+                  chevron: true,
+                  onTap: () => Navigator.pop(context, true),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

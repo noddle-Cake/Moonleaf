@@ -150,7 +150,7 @@ void main() {
         case 'contents':
           await tester.tapAt(const Offset(195, 40));
           await tester.pumpAndSettle();
-          await tester.tap(find.text('Contents'));
+          await tester.tap(find.byTooltip('Contents'));
       }
       await tester.pumpAndSettle();
       await expectLater(
