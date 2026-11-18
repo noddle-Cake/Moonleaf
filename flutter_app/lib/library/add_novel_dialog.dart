@@ -32,7 +32,11 @@ class _AddNovelDialogState extends State<AddNovelDialog> {
       extractorFor(Uri.parse(url));
       final metadata = await widget.service.detect(url);
       if (!mounted) return;
-      await widget.store.add(url, metadata);
+      // A chapter link is saved under its novel's main page.
+      await widget.store.add(
+        metadata.url.isEmpty ? url : metadata.url,
+        metadata,
+      );
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
@@ -60,7 +64,7 @@ class _AddNovelDialogState extends State<AddNovelDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Paste a novel page from Royal Road or RoliaScan. Its details will be saved in your library.',
+                'Paste a novel page, or a link to any of its chapters, from Royal Road or RoliaScan. Its details will be saved in your library.',
               ),
               const SizedBox(height: 20),
               TextField(
@@ -73,7 +77,7 @@ class _AddNovelDialogState extends State<AddNovelDialog> {
                   if (!_busy) _add();
                 },
                 decoration: const InputDecoration(
-                  labelText: 'Novel URL',
+                  labelText: 'Novel or chapter URL',
                   hintText: 'https://roliascan.com/manga/…',
                 ),
               ),
