@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'library_store.dart';
 import 'novel_cover.dart';
+import 'reading.dart';
 
 Future<void> openSource(BuildContext context, String url) async {
   try {
@@ -29,10 +30,12 @@ class NovelDetailScreen extends StatelessWidget {
     required this.url,
     required this.store,
     required this.onExport,
+    required this.onRead,
   });
   final String url;
   final LibraryStore store;
   final void Function(LibraryNovel) onExport;
+  final void Function(LibraryNovel) onRead;
   Future<void> _shelf(BuildContext context, LibraryNovel novel) async {
     final shelf = await showModalBottomSheet<String>(
       context: context,
@@ -80,7 +83,7 @@ class NovelDetailScreen extends StatelessWidget {
       builder: (context) => AlertDialog(
         title: const Text('Remove from library?'),
         content: const Text(
-          'This removes the saved details and history. EPUB files you have exported will stay on your device.',
+          'This removes the book from Moonleaf with its reading progress, bookmarks and highlights. EPUB files you saved elsewhere stay on your device.',
         ),
         actions: [
           TextButton(
@@ -96,7 +99,9 @@ class NovelDetailScreen extends StatelessWidget {
     );
     if (confirm != true) return;
     try {
+      final novel = store.find(url);
       await store.remove(url);
+      if (novel != null) await forgetBook(novel);
       if (context.mounted) Navigator.pop(context);
     } catch (_) {
       if (context.mounted) {
@@ -118,11 +123,12 @@ class NovelDetailScreen extends StatelessWidget {
         appBar: AppBar(
           title: const Text('Novel details'),
           actions: [
-            IconButton(
-              tooltip: 'Open source website',
-              icon: const Icon(Icons.open_in_new),
-              onPressed: () => openSource(context, url),
-            ),
+            if (!novel.isLocal)
+              IconButton(
+                tooltip: 'Open source website',
+                icon: const Icon(Icons.open_in_new),
+                onPressed: () => openSource(context, url),
+              ),
             PopupMenuButton<String>(
               onSelected: (_) => _remove(context),
               itemBuilder: (_) => [
@@ -176,7 +182,9 @@ class NovelDetailScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '${novel.source} · Light novel',
+                          novel.isLocal
+                              ? novel.source
+                              : '${novel.source} · Light novel',
                           style: TextStyle(color: colors.onSurfaceVariant),
                         ),
                         const SizedBox(height: 16),
@@ -214,11 +222,29 @@ class NovelDetailScreen extends StatelessWidget {
                   spacing: 12,
                   runSpacing: 12,
                   children: [
-                    FilledButton.icon(
-                      onPressed: () => onExport(novel),
-                      icon: const Icon(Icons.file_download_outlined),
-                      label: const Text('Create EPUB'),
-                    ),
+                    if (novel.epub != null)
+                      FilledButton.icon(
+                        key: const Key('read-novel'),
+                        onPressed: () => onRead(novel),
+                        icon: const Icon(Icons.menu_book_outlined),
+                        label: Text(
+                          (novel.progress ?? 0) > 0.001
+                              ? 'Continue reading · ${(novel.progress! * 100).round()}%'
+                              : 'Start reading',
+                        ),
+                      ),
+                    if (!novel.isLocal)
+                      novel.epub == null
+                          ? FilledButton.icon(
+                              onPressed: () => onExport(novel),
+                              icon: const Icon(Icons.file_download_outlined),
+                              label: const Text('Create EPUB'),
+                            )
+                          : OutlinedButton.icon(
+                              onPressed: () => onExport(novel),
+                              icon: const Icon(Icons.sync),
+                              label: const Text('Update EPUB'),
+                            ),
                     OutlinedButton.icon(
                       onPressed: () => _shelf(context, novel),
                       icon: const Icon(Icons.folder_outlined),
@@ -241,7 +267,7 @@ class NovelDetailScreen extends StatelessWidget {
                 const SizedBox(height: 32),
                 const Divider(),
                 const SizedBox(height: 20),
-                Text('Chapters', style: Theme.of(context).textTheme.titleLarge),
+                Text('Reading', style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 16),
                 Card(
                   child: Padding(
@@ -256,15 +282,33 @@ class NovelDetailScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'A home for your next chapter',
+                          novel.epub == null
+                              ? 'Download the chapters to read here'
+                              : (novel.progress ?? 0) >= .999
+                              ? 'You finished this book'
+                              : (novel.progress ?? 0) > 0.001
+                              ? '${(novel.progress! * 100).toStringAsFixed(1)}% read'
+                              : 'Ready to read',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
+                        if (novel.epub != null &&
+                            (novel.progress ?? 0) > 0) ...[
+                          const SizedBox(height: 12),
+                          LinearProgressIndicator(
+                            value: novel.progress,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ],
                         const SizedBox(height: 8),
-                        const Text(
-                          'The in-app reader and chapter list are coming next. For now, create an EPUB to read in your favorite reading app.',
-                          style: TextStyle(height: 1.5),
+                        Text(
+                          novel.epub == null
+                              ? 'Create the EPUB and it is kept here for the built-in reader, with pages, themes, bookmarks, highlights and reading statistics.'
+                              : novel.isLocal
+                              ? 'Imported from an EPUB file on this device.'
+                              : 'Use Update EPUB to collect newly released chapters. Your place, bookmarks and highlights are kept.',
+                          style: const TextStyle(height: 1.5),
                         ),
-                        if (novel.firstChapter.isNotEmpty)
+                        if (!novel.isLocal && novel.firstChapter.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 16),
                             child: TextButton.icon(

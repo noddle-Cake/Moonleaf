@@ -6,6 +6,7 @@ import 'add_novel_dialog.dart';
 import 'library_store.dart';
 import 'novel_cover.dart';
 import 'novel_detail_screen.dart';
+import 'reading.dart';
 
 const appearanceLabels = {
   AppAppearance.system: 'Follow system',
@@ -83,6 +84,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       MaterialPageRoute<void>(
         builder: (_) => ConvertScreen(
           service: widget.service,
+          store: store,
           initialUrl: novel?.url,
           initialBook: novel?.metadata,
         ),
@@ -96,8 +98,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
     Navigator.push(
       context,
       MaterialPageRoute<void>(
-        builder: (_) =>
-            NovelDetailScreen(url: novel.url, store: store, onExport: _export),
+        builder: (_) => NovelDetailScreen(
+          url: novel.url,
+          store: store,
+          onExport: _export,
+          onRead: (n) => readNovel(context, store, n),
+        ),
       ),
     );
   }
@@ -242,6 +248,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   ),
             actions: [
               if (_destination == 0) ...[
+                IconButton(
+                  tooltip: 'Open an EPUB file',
+                  icon: const Icon(Icons.file_open_outlined),
+                  onPressed: () => importEpub(context, store),
+                ),
                 IconButton(
                   tooltip: _searching ? 'Close search' : 'Search library',
                   icon: Icon(_searching ? Icons.close : Icons.search),
@@ -389,7 +400,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       ? 'Your next story starts here'
                       : 'No novels here yet',
                   message: store.novels.isEmpty
-                      ? 'Build a little world of your own. Add a light novel from a supported source to begin.'
+                      ? 'Build a little world of your own. Add a light novel from a supported source, or open an EPUB file you already have.'
                       : query.isNotEmpty
                       ? 'Try another title, author, or source.'
                       : 'Move a novel to this shelf from its detail page.',
@@ -443,7 +454,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
       title: Text(novel.title, maxLines: 2, overflow: TextOverflow.ellipsis),
       subtitle: Padding(
         padding: const EdgeInsets.only(top: 6),
-        child: Text(subtitle ?? '${novel.source} · ${novel.shelf}'),
+        child: Text(
+          subtitle ??
+              [
+                novel.source,
+                novel.shelf,
+                if ((novel.progress ?? 0) > 0.001)
+                  '${(novel.progress! * 100).round()}% read',
+              ].join(' · '),
+        ),
       ),
       trailing: const Icon(Icons.chevron_right),
       onTap: () => _open(novel),
@@ -452,7 +471,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Widget _updates() => _empty(
     icon: Icons.new_releases_outlined,
     title: 'A quiet chapter',
-    message: 'Chapter updates will live here when the reader is ready. Your saved novels are waiting in your library.',
+    message: 'Open a novel and choose Update EPUB to collect new chapters. Automatic update checks will live here.',
     action: 'Go to library',
     onAction: () => setState(() => _destination = 0),
   );
@@ -463,7 +482,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       return _empty(
         icon: Icons.history,
         title: 'Every story leaves a trail',
-        message: 'Novels you open from your library will appear here. Reading progress will come with the in-app reader.',
+        message: 'Books you open from your library appear here with your reading progress.',
       );
     }
     return ListView(
@@ -480,8 +499,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
         ...novels.map(
           (n) => _novelRow(
             n,
-            subtitle:
-                '${n.source} · ${MaterialLocalizations.of(context).formatMediumDate(n.openedAt!)}',
+            subtitle: [
+              n.source,
+              if ((n.progress ?? 0) > 0.001) '${(n.progress! * 100).round()}%',
+              MaterialLocalizations.of(context).formatMediumDate(n.openedAt!),
+            ].join(' · '),
           ),
         ),
       ],
@@ -507,10 +529,21 @@ class _LibraryScreenState extends State<LibraryScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          FilledButton.icon(
-            onPressed: _add,
-            icon: const Icon(Icons.add_link),
-            label: const Text('Add novel URL'),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              FilledButton.icon(
+                onPressed: _add,
+                icon: const Icon(Icons.add_link),
+                label: const Text('Add novel URL'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => importEpub(context, store),
+                icon: const Icon(Icons.file_open_outlined),
+                label: const Text('Open an EPUB file'),
+              ),
+            ],
           ),
           const SizedBox(height: 36),
           Text(
@@ -632,6 +665,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   onTap: _display,
                 ),
                 ListTile(
+                  leading: const Icon(Icons.file_open_outlined),
+                  title: const Text('Open an EPUB file'),
+                  subtitle: const Text('Read any EPUB in the built-in reader'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => importEpub(context, store),
+                ),
+                ListTile(
                   leading: const Icon(Icons.file_download_outlined),
                   title: const Text('Create an EPUB'),
                   subtitle: const Text('Export a novel to read in another app'),
@@ -658,12 +698,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 openSource(context, 'https://github.com/mihonapp/mihon'),
           ),
           ListTile(
+            leading: const Icon(Icons.chrome_reader_mode_outlined),
+            title: const Text('Reader inspired by KOReader'),
+            subtitle: const Text('Typesetting, menus, gestures and statistics'),
+            trailing: const Icon(Icons.open_in_new),
+            onTap: () =>
+                openSource(context, 'https://github.com/koreader/koreader'),
+          ),
+          ListTile(
             leading: const Icon(Icons.description_outlined),
             title: const Text('Open-source licenses'),
-            onTap: () => showLicensePage(
-              context: context,
-              applicationName: 'Moonleaf',
-            ),
+            onTap: () =>
+                showLicensePage(context: context, applicationName: 'Moonleaf'),
           ),
         ],
       ),

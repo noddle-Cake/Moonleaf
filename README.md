@@ -33,10 +33,42 @@ search, sorting, and **Plan to read / Reading / Completed** shelves. Add a novel
 from **Browse → Add novel URL**, open its details, and choose **Create EPUB**.
 **More → Create an EPUB** also opens the standalone export tool.
 
-Library metadata, shelves, recently opened novels, and appearance preferences
-are saved locally. History records opened detail pages, not chapter reading.
-The chapter list, update checking, and in-app reader are planned for the next
-phase; their screens clearly indicate this. No sample books are installed.
+Library metadata, shelves, recently opened novels, reading progress, and
+appearance preferences are saved locally. Automatic update checking is planned;
+use **Update EPUB** on a novel to collect new chapters. No sample books are
+installed.
+
+## Built-in reader
+
+Moonleaf includes a KOReader-inspired EPUB reader, so the app covers finding,
+downloading, and reading a novel:
+
+- When an EPUB finishes building, a copy is kept with the novel. Choose
+  **Read now**, or **Start/Continue reading** on the novel's page. **Save EPUB
+  file** still exports it for other apps.
+- **Open an EPUB file** (library toolbar, Browse, or More) imports any EPUB on
+  the device into the library and opens it.
+- Paginated or continuous view, with instant, slide, or fade page turns.
+- Typesetting: font (including your own TTF/OTF files), size, weight, line,
+  word, and letter spacing, first-line indent, paragraph spacing, margins,
+  justification, and publisher alignment.
+- Page colors: Paper, Sepia, Sage, Dusk, Night, E-ink, and E-ink dark, or match
+  the app appearance.
+- Configurable tap zones (standard, left-handed, or tap anywhere to go
+  forward), swipes, pinch-to-zoom text, keyboard, mouse wheel, and volume keys.
+- A status bar with page numbers, pages and time left in the chapter or book,
+  progress, chapter title, clock, and a progress bar with chapter marks.
+- Contents, bookmarks, highlights in several colors with notes, full-text
+  search, go to page or percentage, a skim slider, footnote previews, and a
+  **Back to where you were** shortcut after jumps.
+- Dictionary, Wikipedia, and translation look-ups for selected text, which open
+  in your browser. Highlights can be copied as Markdown.
+- Reading statistics: time read, speed, daily history, and time-left estimates
+  based on your own pace.
+
+Reading positions, bookmarks, highlights, and statistics are stored on the
+device. In the browser client, kept and imported books last only until the tab
+closes.
 
 Choose **Appearance** in the toolbar or More to select **Follow system**,
 **Light**, **Dark**, **E-reader light**, or **E-reader dark**. E-reader modes
