@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../reader/book_files.dart';
@@ -36,7 +37,7 @@ class NovelCover extends StatelessWidget {
               right: -32,
               top: 30,
               child: Icon(
-                Icons.auto_stories_rounded,
+                CupertinoIcons.book_fill,
                 size: 170,
                 color: Colors.white.withValues(alpha: .07),
               ),
@@ -66,7 +67,7 @@ class NovelCover extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.auto_stories_outlined,
+                            CupertinoIcons.book,
                             color: const Color(0xFFE7D8BE),
                             size: size.maxWidth > 80 ? 32 : 20,
                           ),

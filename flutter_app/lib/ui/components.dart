@@ -331,3 +331,19 @@ class CapsuleButton extends StatelessWidget {
           );
   }
 }
+
+/// A pull-down menu item: the label leads and its symbol trails, as in iOS
+/// menus.
+class MenuLabel extends StatelessWidget {
+  const MenuLabel(this.label, this.icon, {super.key});
+  final String label;
+  final IconData icon;
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(child: Text(label)),
+      const SizedBox(width: 16),
+      Icon(icon, size: 20, color: Palette.of(context).label),
+    ],
+  );
+}

@@ -130,7 +130,7 @@ extension _Panels on _ReaderScreenState {
           ),
         if (persistentBooks)
           ActionChip(
-            avatar: const Icon(Icons.add, size: 18),
+            avatar: const Icon(CupertinoIcons.add, size: 18),
             label: const Text('Add font file'),
             onPressed: () => _addFont(settings),
           ),
@@ -196,12 +196,12 @@ extension _Panels on _ReaderScreenState {
       segments: const [
         ButtonSegment(
           value: ReaderView.paged,
-          icon: Icon(Icons.auto_stories_outlined),
+          icon: Icon(CupertinoIcons.book),
           label: Text('Pages'),
         ),
         ButtonSegment(
           value: ReaderView.scroll,
-          icon: Icon(Icons.swap_vert),
+          icon: Icon(CupertinoIcons.arrow_up_arrow_down),
           label: Text('Continuous'),
         ),
       ],
@@ -213,12 +213,12 @@ extension _Panels on _ReaderScreenState {
       segments: const [
         ButtonSegment(
           value: TextAlignment.justify,
-          icon: Icon(Icons.format_align_justify),
+          icon: Icon(CupertinoIcons.text_justify),
           label: Text('Justified'),
         ),
         ButtonSegment(
           value: TextAlignment.left,
-          icon: Icon(Icons.format_align_left),
+          icon: Icon(CupertinoIcons.text_alignleft),
           label: Text('Ragged'),
         ),
       ],
@@ -465,12 +465,14 @@ extension _Panels on _ReaderScreenState {
     for (final b in settings.buttons)
       ListTile(
         contentPadding: EdgeInsets.zero,
-        leading: Icon(b.forward ? Icons.arrow_forward : Icons.arrow_back),
+        leading: Icon(
+          b.forward ? CupertinoIcons.arrow_right : CupertinoIcons.arrow_left,
+        ),
         title: Text(b.label),
         subtitle: Text(b.forward ? 'Next page' : 'Previous page'),
         trailing: IconButton(
           tooltip: 'Remove ${b.label}',
-          icon: const Icon(Icons.delete_outline),
+          icon: const Icon(CupertinoIcons.delete),
           onPressed: () => settings.update(
             (s) => s.buttons = [
               for (final other in s.buttons)
@@ -485,12 +487,12 @@ extension _Panels on _ReaderScreenState {
       children: [
         OutlinedButton.icon(
           onPressed: () => _assignButton(settings, forward: true),
-          icon: const Icon(Icons.add),
+          icon: const Icon(CupertinoIcons.add),
           label: const Text('Button for next page'),
         ),
         OutlinedButton.icon(
           onPressed: () => _assignButton(settings, forward: false),
-          icon: const Icon(Icons.add),
+          icon: const Icon(CupertinoIcons.add),
           label: const Text('Button for previous page'),
         ),
       ],
@@ -510,7 +512,7 @@ extension _Panels on _ReaderScreenState {
     ReaderSettings settings, {
     required bool forward,
   }) async {
-    final key = await showDialog<LogicalKeyboardKey>(
+    final key = await showCupertinoDialog<LogicalKeyboardKey>(
       context: _ctx,
       builder: (context) => _ButtonCapture(forward: forward),
     );
@@ -547,7 +549,7 @@ extension _Panels on _ReaderScreenState {
     const SizedBox(height: 16),
     OutlinedButton.icon(
       onPressed: settings.reset,
-      icon: const Icon(Icons.restart_alt),
+      icon: const Icon(CupertinoIcons.arrow_counterclockwise),
       label: const Text('Reset all reader settings'),
     ),
   ]);
@@ -672,7 +674,7 @@ extension _Panels on _ReaderScreenState {
                       ),
                       state.bookmarks.isEmpty
                           ? _emptyNote(
-                              Icons.bookmark_border,
+                              CupertinoIcons.bookmark,
                               'No bookmarks yet',
                               'Tap the bookmark icon in the menu to mark a page.',
                             )
@@ -680,7 +682,9 @@ extension _Panels on _ReaderScreenState {
                               children: [
                                 for (final b in state.bookmarks)
                                   ListTile(
-                                    leading: const Icon(Icons.bookmark),
+                                    leading: const Icon(
+                                      CupertinoIcons.bookmark_fill,
+                                    ),
                                     title: Text(
                                       b.snippet,
                                       maxLines: 2,
@@ -693,7 +697,7 @@ extension _Panels on _ReaderScreenState {
                                     ),
                                     trailing: IconButton(
                                       tooltip: 'Delete bookmark',
-                                      icon: const Icon(Icons.delete_outline),
+                                      icon: const Icon(CupertinoIcons.delete),
                                       onPressed: () {
                                         setSheet(
                                           () => state.bookmarks.remove(b),
@@ -711,7 +715,7 @@ extension _Panels on _ReaderScreenState {
                             ),
                       state.highlights.isEmpty
                           ? _emptyNote(
-                              Icons.border_color_outlined,
+                              CupertinoIcons.pencil_outline,
                               'No highlights yet',
                               'Long-press a word, drag to select more, then choose Highlight or Note.',
                             )
@@ -813,26 +817,29 @@ extension _Panels on _ReaderScreenState {
 
   Future<String?> _noteDialog(String initial) {
     final controller = TextEditingController(text: initial);
-    return showDialog<String>(
+    return showCupertinoDialog<String>(
       context: _ctx,
-      builder: (context) => AlertDialog(
+      builder: (context) => CupertinoAlertDialog(
         title: const Text('Note'),
-        content: SizedBox(
-          width: 420,
-          child: TextField(
+        content: Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: CupertinoTextField(
+            key: const Key('note-field'),
             controller: controller,
             autofocus: true,
             minLines: 3,
             maxLines: 8,
-            decoration: const InputDecoration(hintText: 'Your thoughts…'),
+            placeholder: 'Your thoughts…',
+            textCapitalization: TextCapitalization.sentences,
           ),
         ),
         actions: [
-          TextButton(
+          CupertinoDialogAction(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+          CupertinoDialogAction(
+            isDefaultAction: true,
             onPressed: () => Navigator.pop(context, controller.text.trim()),
             child: const Text('Save'),
           ),
@@ -871,7 +878,7 @@ extension _Panels on _ReaderScreenState {
                     for (final e in highlightColors.entries)
                       ChoiceChip(
                         avatar: e.key == 'underline'
-                            ? const Icon(Icons.format_underline, size: 18)
+                            ? const Icon(CupertinoIcons.underline, size: 18)
                             : CircleAvatar(
                                 backgroundColor: e.value.withValues(alpha: 1),
                                 radius: 7,
@@ -899,7 +906,7 @@ extension _Panels on _ReaderScreenState {
                         setSheet(() => h.note = note);
                         _save();
                       },
-                      icon: const Icon(Icons.edit_note),
+                      icon: const Icon(CupertinoIcons.square_pencil),
                       label: Text(h.note.isEmpty ? 'Add note' : 'Edit note'),
                     ),
                     TextButton.icon(
@@ -908,7 +915,7 @@ extension _Panels on _ReaderScreenState {
                         Navigator.pop(context);
                         _toast('Copied');
                       },
-                      icon: const Icon(Icons.copy),
+                      icon: const Icon(CupertinoIcons.doc_on_doc),
                       label: const Text('Copy'),
                     ),
                     TextButton.icon(
@@ -918,7 +925,7 @@ extension _Panels on _ReaderScreenState {
                         _refresh();
                         _save();
                       },
-                      icon: const Icon(Icons.delete_outline),
+                      icon: const Icon(CupertinoIcons.delete),
                       label: const Text('Delete'),
                     ),
                   ],
@@ -1013,11 +1020,11 @@ extension _Panels on _ReaderScreenState {
                     textInputAction: TextInputAction.search,
                     decoration: InputDecoration(
                       hintText: 'Search this book',
-                      prefixIcon: const Icon(Icons.search),
+                      prefixIcon: const Icon(CupertinoIcons.search),
                       suffixIcon: IconButton(
                         tooltip: 'Match case',
                         isSelected: matchCase,
-                        icon: const Icon(Icons.text_fields),
+                        icon: const Icon(CupertinoIcons.textformat),
                         onPressed: () => setSheet(() {
                           matchCase = !matchCase;
                           run(controller.text);
@@ -1072,46 +1079,54 @@ extension _Panels on _ReaderScreenState {
   Future<void> _goToDialog() async {
     final controller = TextEditingController();
     var byPage = _counted && !_scrollMode;
-    final target = await showDialog<double>(
+    final target = await showCupertinoDialog<double>(
       context: _ctx,
+      barrierDismissible: true,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialog) => AlertDialog(
-          title: const Text('Go to'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_counted && !_scrollMode)
-                SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(value: true, label: Text('Page')),
-                    ButtonSegment(value: false, label: Text('Percent')),
-                  ],
-                  selected: {byPage},
-                  onSelectionChanged: (v) => setDialog(() => byPage = v.first),
-                ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: InputDecoration(
-                  labelText: byPage
+        builder: (context, setDialog) => CupertinoAlertDialog(
+          title: const Text('Go To'),
+          content: Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_counted && !_scrollMode) ...[
+                  CupertinoSlidingSegmentedControl<bool>(
+                    groupValue: byPage,
+                    children: const {
+                      true: Text('Page'),
+                      false: Text('Percent'),
+                    },
+                    onValueChanged: (v) {
+                      if (v != null) setDialog(() => byPage = v);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                CupertinoTextField(
+                  key: const Key('go-to-field'),
+                  controller: controller,
+                  autofocus: true,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  placeholder: byPage
                       ? 'Page (1–$_bookPages)'
                       : 'Percent (0–100)',
+                  onSubmitted: (v) =>
+                      Navigator.pop(context, double.tryParse(v.trim())),
                 ),
-                onSubmitted: (v) =>
-                    Navigator.pop(context, double.tryParse(v.trim())),
-              ),
-            ],
+              ],
+            ),
           ),
           actions: [
-            TextButton(
+            CupertinoDialogAction(
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel'),
             ),
-            FilledButton(
+            CupertinoDialogAction(
+              isDefaultAction: true,
               onPressed: () => Navigator.pop(
                 context,
                 double.tryParse(controller.text.trim()),
@@ -1151,22 +1166,14 @@ extension _Panels on _ReaderScreenState {
       if (uri == null || !(uri.isScheme('http') || uri.isScheme('https'))) {
         return;
       }
-      final open = await showDialog<bool>(
+      final open = await showAppleAlert<bool>(
         context: _ctx,
-        builder: (context) => AlertDialog(
-          title: const Text('Open link?'),
-          content: Text(href),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Open in browser'),
-            ),
-          ],
-        ),
+        title: 'Open this link in your browser?',
+        message: href,
+        actions: const [
+          AlertAction('Cancel', false),
+          AlertAction('Open', true, preferred: true),
+        ],
       );
       if (open == true) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -1210,7 +1217,7 @@ extension _Panels on _ReaderScreenState {
                   alignment: Alignment.centerRight,
                   child: TextButton.icon(
                     onPressed: () => Navigator.pop(context, true),
-                    icon: const Icon(Icons.arrow_forward),
+                    icon: const Icon(CupertinoIcons.arrow_right),
                     label: const Text('Go there'),
                   ),
                 ),
@@ -1498,7 +1505,7 @@ class _StepperState extends State<_Stepper> {
             children: [
               IconButton(
                 tooltip: 'Decrease ${widget.label.toLowerCase()}',
-                icon: const Icon(Icons.remove),
+                icon: const Icon(CupertinoIcons.minus),
                 onPressed: value <= widget.min
                     ? null
                     : () => widget.onChanged(_snap(value - widget.step)),
@@ -1518,7 +1525,7 @@ class _StepperState extends State<_Stepper> {
               ),
               IconButton(
                 tooltip: 'Increase ${widget.label.toLowerCase()}',
-                icon: const Icon(Icons.add),
+                icon: const Icon(CupertinoIcons.add),
                 onPressed: value >= widget.max
                     ? null
                     : () => widget.onChanged(_snap(value + widget.step)),
@@ -1562,14 +1569,13 @@ class _ButtonCapture extends StatelessWidget {
       }
       return KeyEventResult.handled;
     },
-    child: AlertDialog(
-      icon: const Icon(Icons.touch_app_outlined),
+    child: CupertinoAlertDialog(
       title: Text(
         forward ? 'Button for next page' : 'Button for previous page',
       ),
       content: const Text('Press the button you want to use now.'),
       actions: [
-        TextButton(
+        CupertinoDialogAction(
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 
 /// A code-drawn book jacket that also works offline, before a cover is detected.
 class BookArt extends StatelessWidget {
@@ -35,7 +35,7 @@ class BookArt extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Icon(
-                    Icons.auto_stories_outlined,
+                    CupertinoIcons.book,
                     color: Color(0xFFDEC9A1),
                     size: 26,
                   ),

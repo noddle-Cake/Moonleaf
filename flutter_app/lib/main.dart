@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -99,7 +100,7 @@ class _NovelAppState extends State<NovelApp> {
         home: Scaffold(
           body: Center(
             child: _loadError == null
-                ? const CircularProgressIndicator()
+                ? const CupertinoActivityIndicator(radius: 14)
                 : Padding(
                     padding: const EdgeInsets.all(24),
                     child: Column(

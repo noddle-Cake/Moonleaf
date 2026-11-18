@@ -44,30 +44,24 @@ extension _LibraryTab on _LibraryScreenState {
           itemBuilder: (_) => [
             PopupMenuItem(
               value: 'grid',
-              child: ListTile(
-                leading: Icon(
-                  store.grid
-                      ? CupertinoIcons.list_bullet
-                      : CupertinoIcons.square_grid_2x2,
-                ),
-                title: Text(store.grid ? 'Show as List' : 'Show as Grid'),
+              child: MenuLabel(
+                store.grid ? 'Show as List' : 'Show as Grid',
+                store.grid
+                    ? CupertinoIcons.list_bullet
+                    : CupertinoIcons.square_grid_2x2,
               ),
             ),
             PopupMenuItem(
               value: 'sort',
-              child: ListTile(
-                leading: const Icon(CupertinoIcons.arrow_up_arrow_down),
-                title: Text(
-                  store.sortByTitle ? 'Sort by Date Added' : 'Sort by Title',
-                ),
+              child: MenuLabel(
+                store.sortByTitle ? 'Sort by Date Added' : 'Sort by Title',
+                CupertinoIcons.arrow_up_arrow_down,
               ),
             ),
+            const PopupMenuDivider(),
             const PopupMenuItem(
               value: 'import',
-              child: ListTile(
-                leading: Icon(CupertinoIcons.doc),
-                title: Text('Open an EPUB File'),
-              ),
+              child: MenuLabel('Open an EPUB File', CupertinoIcons.doc),
             ),
           ],
         ),

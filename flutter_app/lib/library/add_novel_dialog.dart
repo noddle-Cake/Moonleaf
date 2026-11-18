@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../data/novel_service.dart';
@@ -97,11 +98,8 @@ class _AddNovelDialogState extends State<AddNovelDialog> {
                     ),
                     _busy
                         ? const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 14),
-                            child: SizedBox.square(
-                              dimension: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
+                            padding: EdgeInsets.symmetric(horizontal: 18),
+                            child: CupertinoActivityIndicator(),
                           )
                         : TextButton(
                             onPressed: _add,

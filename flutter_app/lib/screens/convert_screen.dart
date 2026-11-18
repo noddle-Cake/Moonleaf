@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:file_saver/file_saver.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 
@@ -411,7 +412,7 @@ class _ConvertScreenState extends State<ConvertScreen> {
             IconButton(
               tooltip: 'Server connection',
               onPressed: _busy ? null : _settings,
-              icon: const Icon(Icons.dns_outlined),
+              icon: const Icon(CupertinoIcons.globe),
             ),
         ],
       ),
@@ -473,7 +474,9 @@ class _ConvertScreenState extends State<ConvertScreen> {
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
                     onPressed: _busy ? null : _detect,
-                    icon: _detecting ? _spinner() : const Icon(Icons.search),
+                    icon: _detecting
+                        ? _spinner()
+                        : const Icon(CupertinoIcons.search),
                     label: const Text('Find book details'),
                   ),
                   const SizedBox(height: 28),
@@ -516,7 +519,7 @@ class _ConvertScreenState extends State<ConvertScreen> {
                     children: [
                       OutlinedButton.icon(
                         onPressed: _busy ? null : _pickCover,
-                        icon: const Icon(Icons.image_outlined),
+                        icon: const Icon(CupertinoIcons.photo),
                         label: const Text('Upload a cover'),
                       ),
                       if (_coverName != null) Text(_coverName!),
@@ -529,7 +532,7 @@ class _ConvertScreenState extends State<ConvertScreen> {
                                   _cover = null;
                                   _coverName = null;
                                 }),
-                          icon: const Icon(Icons.close),
+                          icon: const Icon(CupertinoIcons.xmark),
                         ),
                     ],
                   ),
@@ -549,7 +552,7 @@ class _ConvertScreenState extends State<ConvertScreen> {
                       onPressed: _busy ? null : _extract,
                       icon: _starting
                           ? _spinner()
-                          : const Icon(Icons.file_download_outlined),
+                          : const Icon(CupertinoIcons.arrow_down_doc),
                       label: const Text('Create EPUB'),
                     ),
                   ),
@@ -615,9 +618,7 @@ class _ConvertScreenState extends State<ConvertScreen> {
                 FilledButton.icon(
                   key: const Key('read-now'),
                   onPressed: _keptUrl == null ? null : _readNow,
-                  icon: _keeping
-                      ? _spinner()
-                      : const Icon(Icons.menu_book_outlined),
+                  icon: _keeping ? _spinner() : const Icon(CupertinoIcons.book),
                   label: Text(
                     _keeping ? 'Adding to your library…' : 'Read now',
                   ),
@@ -632,7 +633,9 @@ class _ConvertScreenState extends State<ConvertScreen> {
               (widget.store == null ? FilledButton.icon : OutlinedButton.icon)(
                 key: const Key('save-epub'),
                 onPressed: _saving ? null : _save,
-                icon: _saving ? _spinner() : const Icon(Icons.save_alt),
+                icon: _saving
+                    ? _spinner()
+                    : const Icon(CupertinoIcons.square_arrow_down),
                 label: Text(
                   widget.store == null ? 'Save EPUB' : 'Save EPUB file',
                 ),
@@ -650,9 +653,5 @@ class _ConvertScreenState extends State<ConvertScreen> {
     );
   }
 
-  Widget _spinner() => const SizedBox(
-    width: 18,
-    height: 18,
-    child: CircularProgressIndicator(strokeWidth: 2),
-  );
+  Widget _spinner() => const CupertinoActivityIndicator(radius: 9);
 }
