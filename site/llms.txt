@@ -1,17 +1,17 @@
 # Moonleaf
 
-> Moonleaf is a free Android app (Android 7.0+) that saves web novels from Royal Road and RoliaScan as EPUB files on the phone and reads them, or any EPUB the user already has, in a built-in reader inspired by KOReader. No account, no ads, no analytics; the library stays on the device. Distributed as an APK from GitHub, not Google Play.
+> Moonleaf is a free Android app (Android 7.0+) that saves web novels and fan fiction from Royal Road, Scribble Hub, FanFiction.net, AO3, Standard Ebooks and RoliaScan as EPUB files on the phone and reads them, or any EPUB the user already has, in a built-in reader inspired by KOReader. No account, no ads, no analytics; the library stays on the device. Distributed as an APK from GitHub, not Google Play.
 
 ## Key facts
 
 - Price: free. No ads, no in-app purchases, no account.
 - Platform: Android 7.0 or later. APK download of about 160 MB. iOS, macOS, Windows and Linux builds are possible from source but not published.
-- Supported sources: Royal Road and RoliaScan text novels (not image-only manga). Any EPUB file can also be imported.
-- What it does: add a novel by its URL or by a link to any chapter (the whole book is downloaded from chapter 1), create an EPUB on the device, read it in the app with "Read now" or "Continue reading", or export the EPUB file. "Update EPUB" collects new chapters and keeps reading position.
+- Supported sources: Royal Road, Scribble Hub, FanFiction.net and FictionPress (pages load in an in-app browser; the user may need to complete a Cloudflare human check), AO3 and Standard Ebooks (the site's own EPUB is downloaded), and RoliaScan. Text only, not image-only manga. Any EPUB file can also be imported. Wattpad is not supported because its terms prohibit scraping.
+- What it does: paste a story's URL or a link to any chapter; Moonleaf adds it to the library and downloads the whole book automatically as an EPUB, with chapter names tidied to "Chapter N: Name". The novel page lists chapters Mihon-style (read chapters dimmed, tap to open, Resume). "Check for new chapters" updates the book; the EPUB can be saved for other apps.
 - Reader features: paged or continuous view; font (including custom TTF/OTF), size, weight, line/word/letter spacing, indent, paragraph spacing, margins, justification; page colors Paper, Sepia, Sage, Dusk, Night, E-ink and E-ink dark; configurable tap zones, swipe, pinch-to-zoom text and keyboard page turns; configurable status bar; contents with page numbers; bookmarks; highlights with notes in several colors; full-text search; go to page or percent; footnote previews; dictionary, Wikipedia and translation look-ups in the browser; reading statistics and time-left estimates.
 - Library: Mihon-inspired cover grid or list, Plan to read / Reading / Completed shelves, search, history and progress bars.
 - Privacy: all data (library, EPUBs, positions, highlights, statistics) is stored on the device. The app connects only to the novel sites the user chooses.
-- Affiliation: independent project, not affiliated with KOReader, Mihon, Royal Road or RoliaScan, and contains no code from KOReader or Mihon.
+- Affiliation: independent project, not affiliated with KOReader, Mihon, Royal Road, Scribble Hub, FanFiction.net, AO3, Standard Ebooks or RoliaScan, and contains no code from KOReader or Mihon.
 
 ## Pages
 
