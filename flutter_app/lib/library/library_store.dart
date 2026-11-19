@@ -249,6 +249,7 @@ class LibraryStore extends ChangeNotifier {
     String key,
     BookMetadata metadata, {
     int? chapters,
+    int? since,
   }) => _change(() {
     final canonical = LibraryStore.canonical(url);
     final index = _novels.indexWhere((n) => n.url == canonical);
@@ -270,7 +271,9 @@ class LibraryStore extends ChangeNotifier {
       );
     } else {
       final old = _novels[index];
-      final before = old.epub == null ? null : old.chapterCount;
+      // While a book downloads, its partial versions aren't updates: count
+      // from [since], the chapters it had before this download.
+      final before = since ?? (old.epub == null ? null : old.chapterCount);
       _novels[index] = old.copyWith(
         epub: key,
         chapterCount: chapters,

@@ -52,7 +52,8 @@ class ChapterStore {
   ChapterStore(this.files);
   final ChapterFiles files;
   List<String>? _order;
-  bool _done = false;
+  bool _done = false, _prefixDone = false;
+  String? _head;
 
   static String _name(String url) {
     // FNV-1a, kept within 32 bits so it's exact on the web too.
@@ -70,28 +71,67 @@ class ChapterStore {
       if (raw != null) {
         final json = jsonDecode(utf8.decode(raw)) as Map<String, dynamic>;
         _done = json['done'] as bool? ?? false;
+        _head = json['head'] as String?;
+        _prefixDone = json['prefixDone'] as bool? ?? false;
         return _order = List<String>.from(json['order'] as List);
       }
     } catch (_) {}
     _done = false;
+    _head = null;
+    _prefixDone = false;
     return _order = [];
   }
 
   Future<void> _saveIndex() => files.write(
     'index.json',
     Uint8List.fromList(
-      utf8.encode(jsonEncode({'order': _order, 'done': _done})),
+      utf8.encode(
+        jsonEncode({
+          'order': _order,
+          'done': _done,
+          'head': _head,
+          'prefixDone': _prefixDone,
+        }),
+      ),
     ),
   );
 
   /// Chapter links in reading order.
   Future<List<String>> order() async => List.unmodifiable(await _load());
 
-  /// Whether the last download reached a chapter with no Next link.
+  /// Whether a download reached a chapter with no Next link.
   Future<bool> done() async {
     await _load();
     return _done;
   }
+
+  /// The chapter a download started from when it wasn't chapter 1 (a pasted
+  /// chapter link). Chapters before it are fetched after the rest.
+  Future<String?> head() async {
+    await _load();
+    return _head;
+  }
+
+  Future<void> setHead(String url) async {
+    await _load();
+    _head = url;
+    await _saveIndex();
+  }
+
+  /// Whether the chapters before [head] are all kept.
+  Future<bool> prefixDone() async {
+    await _load();
+    return _head == null || _prefixDone;
+  }
+
+  Future<void> finishPrefix() async {
+    await _load();
+    _prefixDone = true;
+    await _saveIndex();
+  }
+
+  /// Whether every chapter, before and after [head], is kept.
+  Future<bool> complete() async => await done() && await prefixDone();
 
   Future<int> get length async => (await _load()).length;
 
@@ -116,7 +156,6 @@ class ChapterStore {
     if (!order.contains(url)) {
       order.insert((at ?? order.length).clamp(0, order.length), url);
     }
-    _done = false;
     await _saveIndex();
   }
 
@@ -155,5 +194,7 @@ class ChapterStore {
     await files.deleteAll();
     _order = [];
     _done = false;
+    _head = null;
+    _prefixDone = false;
   }
 }

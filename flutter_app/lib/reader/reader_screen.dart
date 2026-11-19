@@ -30,6 +30,8 @@ Future<bool> openReader(
   void Function(double progress)? onProgress,
   int? chapter,
   int? offset,
+  Stream<Uint8List>? updates,
+  ValueListenable<bool>? downloading,
 }) async {
   final EpubDocument document;
   try {
@@ -59,6 +61,8 @@ Future<bool> openReader(
         onProgress: onProgress,
         initialChapter: chapter,
         initialOffset: offset,
+        updates: updates,
+        downloading: downloading,
       ),
     ),
   );
@@ -87,9 +91,18 @@ class ReaderScreen extends StatefulWidget {
     this.onProgress,
     this.initialChapter,
     this.initialOffset,
+    this.updates,
+    this.downloading,
   });
   final String bookId;
   final EpubDocument document;
+
+  /// Newer versions of the book while it downloads. The reader adds their
+  /// chapters without losing the place.
+  final Stream<Uint8List>? updates;
+
+  /// Whether more chapters are on their way.
+  final ValueListenable<bool>? downloading;
   final ReaderSettings? settings;
   final bool ereaderApp;
   final void Function(double progress)? onProgress;
@@ -102,12 +115,22 @@ typedef _Mark = (int, int, Color, bool);
 
 class _ReaderScreenState extends State<ReaderScreen>
     with WidgetsBindingObserver {
-  EpubDocument get doc => widget.document;
+  late EpubDocument _doc = widget.document;
+  EpubDocument get doc => _doc;
+  StreamSubscription<Uint8List>? _updates;
+  Uint8List? _nextBytes;
+  bool _parsing = false;
+
+  /// More chapters are downloading.
+  bool get _growing => widget.downloading?.value ?? false;
   ReaderSettings? _settings;
   BookState? _state;
   Typesetter? _ts;
   String _tsKey = '';
   int _gen = 0;
+
+  /// Changes when pages are laid out again, to reset page transitions.
+  int _view = 0;
   final _layouts = <int, ChapterLayout>{};
   final _pending = <int, Future<ChapterLayout?>>{};
 
@@ -150,7 +173,86 @@ class _ReaderScreenState extends State<ReaderScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _counts = List.filled(doc.chapters.length, null);
+    _updates = widget.updates?.listen((bytes) {
+      _nextBytes = bytes;
+      _takeUpdate();
+    });
+    widget.downloading?.addListener(_rebuild);
     _init();
+  }
+
+  /// Parses the newest version of the book, one at a time.
+  Future<void> _takeUpdate() async {
+    if (_parsing) return;
+    _parsing = true;
+    try {
+      while (_nextBytes != null && mounted) {
+        final bytes = _nextBytes!;
+        _nextBytes = null;
+        try {
+          final next = await parseEpub(bytes);
+          if (mounted) _replaceDocument(next);
+        } catch (_) {}
+      }
+    } finally {
+      _parsing = false;
+    }
+  }
+
+  /// Switches to a newer version of the book. Chapters keep their pages
+  /// (layouts are reused), so the open page doesn't change or redraw, and
+  /// the place, bookmarks and highlights follow their chapters.
+  void _replaceDocument(EpubDocument next) {
+    final old = [for (final c in doc.chapters) c.path];
+    final paths = [for (final c in next.chapters) c.path];
+    final index = {for (var i = 0; i < paths.length; i++) paths[i]: i};
+    int? map(int c) => c >= 0 && c < old.length ? index[old[c]] : null;
+    final layouts = <int, ChapterLayout>{};
+    for (final entry in _layouts.entries) {
+      final moved = map(entry.key);
+      if (moved == null) {
+        entry.value.dispose();
+      } else {
+        layouts[moved] = entry.value;
+      }
+    }
+    final counts = List<int?>.filled(paths.length, null);
+    for (var c = 0; c < _counts.length; c++) {
+      if (map(c) case final moved?) counts[moved] = _counts[c];
+    }
+    final state = _state;
+    if (state != null) {
+      state
+        ..chapter = _chapter
+        ..offset = _offset;
+      if (state.spine.isEmpty) state.spine = old;
+      state.follow(paths);
+    }
+    final ts = _ts;
+    setState(() {
+      // Layouts being made for the old version are dropped.
+      _gen++;
+      _pending.clear();
+      _layouts
+        ..clear()
+        ..addAll(layouts);
+      _counts = counts;
+      _doc = next;
+      if (ts != null) _ts = Typesetter(next, s, ts.palette, ts.page);
+      _chapter = map(_chapter) ?? _chapter.clamp(0, paths.length - 1);
+      _selection = null;
+      _searchHit = null;
+      if (_returnTo case (final c, final o)?) {
+        _returnTo = map(c) == null ? null : (map(c)!, o);
+      }
+    });
+    if (_layouts[_chapter] == null) {
+      _goTo(_chapter, _offset, remember: false);
+    } else {
+      _preload();
+    }
+    _countPages(_gen);
+    if (state != null) _scheduleSave();
   }
 
   Future<void> _init() async {
@@ -166,6 +268,8 @@ class _ReaderScreenState extends State<ReaderScreen>
       } catch (_) {}
     }
     if (!mounted) return;
+    // Follow chapters added before the saved place since it was saved.
+    if (state.follow([for (final c in doc.chapters) c.path])) state.save();
     state.started ??= DateTime.now();
     final chapter = (widget.initialChapter ?? state.chapter).clamp(
       0,
@@ -217,6 +321,8 @@ class _ReaderScreenState extends State<ReaderScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _updates?.cancel();
+    widget.downloading?.removeListener(_rebuild);
     _settings?.removeListener(_settingsChanged);
     if (widget.settings == null) _settings?.dispose();
     _clock?.cancel();
@@ -268,6 +374,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     if (key == _tsKey) return;
     _tsKey = key;
     _gen++;
+    _view++;
     for (final l in _layouts.values) {
       l.dispose();
     }
@@ -409,6 +516,19 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   void _finished() {
+    if (_growing) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'The next chapter is still downloading. It will appear here '
+              'in a moment.',
+            ),
+          ),
+        );
+      return;
+    }
     final state = _state!;
     state.finished ??= DateTime.now();
     _save();
@@ -460,7 +580,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       ..chapter = _chapter
       ..offset = _offset
       ..progress = _progress;
-    if (_progress >= .999) state.finished ??= DateTime.now();
+    if (_progress >= .999 && !_growing) state.finished ??= DateTime.now();
     state.save();
     widget.onProgress?.call(_progress);
   }
@@ -932,7 +1052,7 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   Widget _pageView(ChapterLayout l) {
     final info = l.pages[_page.clamp(0, l.pages.length - 1)];
-    final key = ValueKey('$_gen-$_chapter-$_page');
+    final key = ValueKey('$_view-${doc.chapters[_chapter].path}-$_page');
     final page = ColoredBox(
       key: key,
       color: palette.background,
@@ -982,7 +1102,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Widget _scrollView(ChapterLayout l) {
-    final key = '$_gen-$_chapter';
+    final key = '$_view-${doc.chapters[_chapter].path}';
     if (_scrollKey != key) {
       _scrollKey = key;
       final old = _scroll;

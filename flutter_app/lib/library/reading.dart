@@ -1,15 +1,18 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
 
+import '../data/epub_writer.dart';
 import '../data/novel_service.dart';
 import '../reader/book_files.dart';
 import '../reader/epub_document.dart';
 import '../reader/reader_screen.dart';
 import '../reader/reader_settings.dart';
 import 'chapter_store.dart';
+import 'downloads.dart';
 import 'library_store.dart';
 
 bool ereaderAppearance(LibraryStore store) =>
@@ -47,6 +50,7 @@ Future<void> readNovel(
   LibraryNovel novel, {
   int? chapter,
   int? offset,
+  DownloadManager? downloads,
 }) async {
   final key = novel.epub;
   if (key == null) return;
@@ -65,37 +69,99 @@ Future<void> readNovel(
     await store.opened(novel.url);
   } catch (_) {}
   if (!context.mounted) return;
-  await openReader(
-    context,
-    bookId: novel.url,
-    bytes: bytes,
-    ereaderApp: ereaderAppearance(store),
-    chapter: chapter,
-    offset: offset,
-    onProgress: (p) {
-      if ((p - (store.find(novel.url)?.progress ?? -1)).abs() > .0005) {
-        store.setProgress(novel.url, p).catchError((Object _) {});
-      }
-    },
-  );
+  // While the book downloads, the reader shows chapters as they arrive.
+  final downloading = ValueNotifier(false);
+  void sync() =>
+      downloading.value = downloads?.statusOf(novel.url)?.active ?? false;
+  sync();
+  downloads?.addListener(sync);
+  try {
+    await openReader(
+      context,
+      bookId: novel.url,
+      bytes: bytes,
+      ereaderApp: ereaderAppearance(store),
+      chapter: chapter,
+      offset: offset,
+      updates: bookSaved.stream
+          .where((saved) => saved == key)
+          .asyncMap((_) => readBook(key))
+          .where((data) => data != null)
+          .cast<Uint8List>(),
+      downloading: downloading,
+      onProgress: (p) {
+        if ((p - (store.find(novel.url)?.progress ?? -1)).abs() > .0005) {
+          store.setProgress(novel.url, p).catchError((Object _) {});
+        }
+      },
+    );
+  } finally {
+    downloads?.removeListener(sync);
+    downloading.dispose();
+  }
 }
 
+/// Books saved while the app runs, by storage key, so an open reader can
+/// show chapters as they download.
+final bookSaved = StreamController<String>.broadcast();
+
 /// Saves a freshly created EPUB with its novel so it can be read in the app.
+///
+/// [since] is the chapter count before this download, so partial saves of a
+/// downloading book aren't counted as new chapters. With [startAt], a book
+/// that hasn't been opened yet starts at that chapter's link, as if the
+/// chapters before it were read.
 Future<LibraryNovel?> keepEpub(
   LibraryStore store,
   String url,
   BookMetadata metadata,
   List<int> bytes, {
   int? chapters,
+  int? since,
+  String? startAt,
 }) async {
   final canonical = LibraryStore.canonical(url);
+  final data = bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
   final key = await saveBook(
     'web-${bookFingerprint(canonical.codeUnits)}',
-    bytes is Uint8List ? bytes : Uint8List.fromList(bytes),
+    data,
   );
   _chapters.remove(key);
-  await store.attachEpub(canonical, key, metadata, chapters: chapters);
+  // Before the library tells pages about the new version.
+  await followChapters(canonical, data, startAt);
+  await store.attachEpub(
+    canonical,
+    key,
+    metadata,
+    chapters: chapters,
+    since: since,
+  );
+  bookSaved.add(key);
   return store.find(canonical);
+}
+
+/// Keeps the saved place, bookmarks and highlights on the same chapters
+/// when chapters were added before them.
+@visibleForTesting
+Future<void> followChapters(String id, Uint8List bytes, String? startAt) async {
+  try {
+    final doc = await parseEpub(bytes);
+    final paths = [for (final c in doc.chapters) c.path];
+    final state = await BookState.load(id);
+    final fresh = state.untouched && state.spine.isEmpty;
+    var changed = state.follow(paths);
+    if (fresh && startAt != null) {
+      final file = '${chapterFileId(Uri.parse(startAt))}.xhtml';
+      final at = paths.indexWhere((p) => p.endsWith(file));
+      if (at >= 0) {
+        state
+          ..chapter = at
+          ..offset = 0;
+        changed = true;
+      }
+    }
+    if (changed) await state.save();
+  } catch (_) {}
 }
 
 /// Lets the reader pick any EPUB on the device, adds it to the library and

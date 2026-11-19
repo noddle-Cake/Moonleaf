@@ -58,6 +58,8 @@ class DownloadManager extends ChangeNotifier {
     BookMetadata metadata,
     List<int> bytes, {
     int? chapters,
+    int? since,
+    String? startAt,
   })
   keep;
   final LibraryStore store;
@@ -69,6 +71,7 @@ class DownloadManager extends ChangeNotifier {
   final http.Client _client;
   final _status = <String, DownloadStatus>{};
   final _queue = <String>[];
+  final _from = <String, String>{};
   String? _running, _jobId;
   bool _disposed = false, _cancelRunning = false;
 
@@ -89,7 +92,11 @@ class DownloadManager extends ChangeNotifier {
   }
 
   /// Queues a novel. Already queued or running novels are left alone.
-  void enqueue(String url) {
+  ///
+  /// [from] is a pasted chapter link: that chapter downloads first, then
+  /// the ones after it, and the chapters before it last.
+  void enqueue(String url, {String? from}) {
+    if (from != null) _from[url] = from;
     if (_status[url]?.active ?? false) return;
     _status[url] = const DownloadStatus(DownloadPhase.queued);
     _queue.add(url);
@@ -119,7 +126,7 @@ class DownloadManager extends ChangeNotifier {
     for (final n in store.novels) {
       if (n.isLocal || _official(n)) continue;
       final kept = chapters(n.url);
-      if (await kept.length > 0 && !await kept.done()) {
+      if (await kept.length > 0 && !await kept.complete()) {
         enqueue(n.url);
         queued++;
       }
@@ -234,16 +241,31 @@ class DownloadManager extends ChangeNotifier {
   /// Downloads chapter by chapter, keeping each one, so only chapters after
   /// the last kept one are fetched. An update with no new chapters costs one
   /// page: the last chapter, checked for a Next link.
+  ///
+  /// A new book is saved as soon as its first chapter arrives and again as
+  /// more arrive, so it can be read while it downloads.
   Future<void> _downloadChapters(
     LibraryNovel novel,
     ChapterSource source,
   ) async {
     final kept = chapters(novel.url);
     final first = Uri.parse(novel.firstChapter).removeFragment();
+    final from = _from.remove(novel.url);
+    // Chapter count before this download, so partial saves aren't counted
+    // as new chapters.
+    final since = novel.epub == null ? null : novel.chapterCount;
     var order = await kept.order();
     Uri? next;
     if (order.isEmpty) {
-      next = first;
+      final start = from == null ? null : Uri.tryParse(from)?.removeFragment();
+      if (start != null &&
+          sameNovel(first, start) &&
+          chapterKey(start) != chapterKey(first)) {
+        await kept.setHead(start.toString());
+        next = start;
+      } else {
+        next = first;
+      }
     } else {
       final last = await kept.chapter(order.last);
       if (last?.next case final resume?) {
@@ -266,43 +288,89 @@ class DownloadManager extends ChangeNotifier {
         }
       }
     }
-    final visited = order.toSet();
+    final head = await kept.head();
+    final positioned = await kept.prefixDone();
+    final visited = {for (final u in order) chapterKey(Uri.parse(u))};
     var fetched = 0;
-    while (next != null) {
-      _stopIfCancelled();
-      final current = next.removeFragment();
-      if (!sameNovel(first, current)) {
+    final publisher = _Publisher(
+      () => _build(novel, kept, since: since, startAt: head),
+      eager: novel.epub == null,
+    );
+
+    Future<NovelChapter> fetch(Uri url, int? number) async {
+      if (!sameNovel(first, url)) {
         throw const ApiException(
           'Stopped because the next link points outside this novel.',
         );
       }
-      if (!visited.add(current.toString())) {
-        throw const ApiException(
-          'The site has a repeated chapter link. Extraction stopped to avoid a loop.',
-        );
-      }
-      final pause = source.pauseFor(current);
+      final pause = source.pauseFor(url);
       if (fetched > 0 && pause > Duration.zero) {
         await Future<void>.delayed(pause);
         _stopIfCancelled();
       }
-      final number = visited.length;
-      final chapter = await source.fetchChapter(current, number);
+      final chapter = await source.fetchChapter(url, number ?? 1);
       _stopIfCancelled();
-      await kept.add(chapter);
       fetched++;
-      _progress(number, cleanChapterTitle(chapter.title, novel.title, number));
+      _progress(
+        visited.length,
+        cleanChapterTitle(chapter.title, novel.title, number),
+      );
+      return chapter;
+    }
+
+    // From the start (or the pasted chapter) to the newest chapter.
+    while (next != null) {
+      _stopIfCancelled();
+      final current = next.removeFragment();
+      if (!visited.add(chapterKey(current))) {
+        throw const ApiException(
+          'The site has a repeated chapter link. Extraction stopped to avoid a loop.',
+        );
+      }
+      // Positions are known unless chapters before a pasted link are missing.
+      final chapter = await fetch(current, positioned ? visited.length : null);
+      await kept.add(chapter);
       next = chapter.next;
+      await publisher.maybe(fetched);
     }
     await kept.finish();
+
+    // After a pasted chapter link: the chapters before it, in order.
+    if (head != null && !await kept.prefixDone()) {
+      order = await kept.order();
+      final at = order.indexOf(head);
+      var insert = at < 0 ? 0 : at;
+      Uri? before = insert == 0
+          ? first
+          : (await kept.chapter(order[insert - 1]))?.next;
+      final stop = chapterKey(Uri.parse(head));
+      while (before != null) {
+        _stopIfCancelled();
+        final current = before.removeFragment();
+        final key = chapterKey(current);
+        if (key == stop || !visited.add(key)) break;
+        final chapter = await fetch(current, insert + 1);
+        await kept.add(chapter, at: insert++);
+        before = chapter.next;
+        await publisher.maybe(fetched);
+      }
+      await kept.finishPrefix();
+    }
     if (fetched == 0 && novel.epub != null) return;
-    await _build(novel, kept);
+    await publisher.finish();
   }
 
   /// Packages the kept chapters as the novel's EPUB.
-  Future<void> _build(LibraryNovel novel, ChapterStore kept) async {
+  Future<void> _build(
+    LibraryNovel novel,
+    ChapterStore kept, {
+    int? since,
+    String? startAt,
+  }) async {
     final all = await kept.all();
     if (all.isEmpty) throw const ApiException('No chapters were found.');
+    // Until the chapters before a pasted link arrive, positions aren't known.
+    final numbered = await kept.prefixDone();
     var cover = await kept.cover();
     if (cover == null && fetchCovers) {
       cover = await _cover(novel.coverUrl);
@@ -315,7 +383,11 @@ class DownloadManager extends ChangeNotifier {
       [
         for (var i = 0; i < all.length; i++)
           NovelChapter(
-            cleanChapterTitle(all[i].title, novel.title, i + 1),
+            cleanChapterTitle(
+              all[i].title,
+              novel.title,
+              numbered ? i + 1 : null,
+            ),
             all[i].content,
             all[i].url,
             all[i].next,
@@ -325,7 +397,15 @@ class DownloadManager extends ChangeNotifier {
     );
     final bytes = await compute(buildEpub, book);
     if (_disposed) return;
-    await keep(store, novel.url, novel.metadata, bytes, chapters: all.length);
+    await keep(
+      store,
+      novel.url,
+      novel.metadata,
+      bytes,
+      chapters: all.length,
+      since: since,
+      startAt: startAt,
+    );
   }
 
   /// The source cover as PNG or JPEG bytes, or null. Other formats (such as
@@ -360,5 +440,45 @@ class DownloadManager extends ChangeNotifier {
     if (job != null) service.cancel(job).catchError((Object _) {});
     _client.close();
     super.dispose();
+  }
+}
+
+/// Saves a downloading book now and then so it can be read while the rest
+/// arrives: after the 1st, 3rd and 10th chapters, then every [every].
+class _Publisher {
+  _Publisher(this.publish, {required this.eager});
+  final Future<void> Function() publish;
+
+  /// Whether to save while downloading. Updates of a book that's already
+  /// saved are saved once, at the end.
+  final bool eager;
+  static const every = Duration(seconds: 20);
+  final _clock = Stopwatch();
+
+  int _fetched = 0, _savedAt = -1;
+
+  Future<void> maybe(int fetched) async {
+    _fetched = fetched;
+    if (!eager) return;
+    final due =
+        fetched == 1 ||
+        fetched == 3 ||
+        fetched == 10 ||
+        (_clock.isRunning && _clock.elapsed >= every);
+    if (due) await now();
+  }
+
+  /// Saves the finished book unless the last save already has every
+  /// chapter.
+  Future<void> finish() async {
+    if (_savedAt != _fetched) await now();
+  }
+
+  Future<void> now() async {
+    await publish();
+    _savedAt = _fetched;
+    _clock
+      ..reset()
+      ..start();
   }
 }

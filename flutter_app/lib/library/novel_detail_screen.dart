@@ -89,7 +89,14 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
     if (open != null) {
       await open(novel, chapter: chapter, offset: offset);
     } else {
-      await readNovel(context, store, novel, chapter: chapter, offset: offset);
+      await readNovel(
+        context,
+        store,
+        novel,
+        chapter: chapter,
+        offset: offset,
+        downloads: widget.downloads,
+      );
     }
     await _loadState();
   }
@@ -154,6 +161,8 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
     // The store replaces a novel's entry when its book is downloaded again;
     // the parsed contents are cached, so asking again is cheap.
     if (_chapters == null || !identical(_chaptersFor, novel)) {
+      // A new version of the book may have moved the saved place.
+      if (_chaptersFor != null) _loadState();
       _chaptersFor = novel;
       _chapters = (widget.chapters ?? loadChapters)(novel);
     }

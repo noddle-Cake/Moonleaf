@@ -83,7 +83,7 @@ void main() {
       );
     }
     final content = utf8.decode(
-      zip.findFile('EPUB/chapter00001.xhtml')!.content,
+      zip.findFile('EPUB/${chapterFileId(Uri.parse(first))}.xhtml')!.content,
     );
     expect(content, contains('<em>world</em>'));
     expect(content, isNot(contains('bad()')));
@@ -184,7 +184,10 @@ void main() {
     );
     final zip = ZipDecoder().decodeBytes(bytes);
     expect(zip.findFile('EPUB/cover.png'), isNotNull);
-    expect(zip.findFile('EPUB/chapter00002.xhtml'), isNotNull);
+    expect(
+      zip.findFile('EPUB/${chapterFileId(Uri.parse(second))}.xhtml'),
+      isNotNull,
+    );
     expect(
       utf8.decode(zip.findFile('EPUB/content.opf')!.content),
       contains('properties="cover-image"'),
