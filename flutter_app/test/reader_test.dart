@@ -238,6 +238,7 @@ void main() {
     Future<ReaderSettings> open(
       WidgetTester tester, {
       Size size = const Size(390, 844),
+      Map<String, Object?> extra = const {},
     }) async {
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1;
@@ -246,6 +247,7 @@ void main() {
       final settings = ReaderSettings({
         'animation': 'none',
         'fullscreen': false,
+        ...extra,
       });
       addTearDown(settings.dispose);
       final doc = EpubDocument.parse(sampleBook());
@@ -393,6 +395,39 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Back to where you were'), findsOneWidget);
     });
+
+    for (final eink in [true, false]) {
+      testWidgets('menu in e-ink screen mode ${eink ? 'on' : 'off'}', (
+        tester,
+      ) async {
+        final modes = <Object?>[];
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          (call) async {
+            if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
+              modes.add(call.arguments);
+            }
+            return null;
+          },
+        );
+        addTearDown(
+          () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            SystemChannels.platform,
+            null,
+          ),
+        );
+        await open(tester, extra: {'fullscreen': true, 'eink': eink});
+        final before = modes.length;
+        await tester.tapAt(const Offset(195, 40));
+        await tester.pump();
+        expect(find.byTooltip('Contents'), findsOneWidget);
+        expect(find.byType(BackdropFilter), eink ? findsNothing : findsWidgets);
+        // Opening the menu shows the system bars only outside e-ink mode.
+        expect(modes.length - before, eink ? 0 : 1);
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpAndSettle();
+      });
+    }
 
     testWidgets('volume and assigned buttons turn pages', (tester) async {
       final settings = await open(tester);

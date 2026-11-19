@@ -242,6 +242,9 @@ Future<T?> showAppleSheet<T>({
     useSafeArea: true,
     showDragHandle: true,
     barrierColor: barrierColor,
+    sheetAnimationStyle: p.eink || MediaQuery.disableAnimationsOf(context)
+        ? AnimationStyle.noAnimation
+        : null,
     backgroundColor: p.elevated,
     constraints: const BoxConstraints(maxWidth: 700),
     shape: const RoundedRectangleBorder(
@@ -273,13 +276,45 @@ class AlertAction<T> {
   final bool destructive, preferred;
 }
 
+/// Shows a Cupertino dialog. On e-ink screens and with Reduce Motion it
+/// appears instantly instead of fading and scaling in.
+Future<T?> showAppleDialog<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  bool barrierDismissible = false,
+}) {
+  final still =
+      Palette.of(context).eink || MediaQuery.disableAnimationsOf(context);
+  if (!still) {
+    return showCupertinoDialog<T>(
+      context: context,
+      barrierDismissible: barrierDismissible,
+      builder: builder,
+    );
+  }
+  final themes = InheritedTheme.capture(
+    from: context,
+    to: Navigator.of(context).context,
+  );
+  return showGeneralDialog<T>(
+    context: context,
+    barrierDismissible: barrierDismissible,
+    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    barrierColor: Palette.of(context).eink
+        ? Colors.transparent
+        : CupertinoDynamicColor.resolve(kCupertinoModalBarrierColor, context),
+    transitionDuration: Duration.zero,
+    pageBuilder: (context, _, _) => themes.wrap(builder(context)),
+  );
+}
+
 /// An Apple-style alert. Returns the chosen action's value, or null.
 Future<T?> showAppleAlert<T>({
   required BuildContext context,
   required String title,
   String? message,
   required List<AlertAction<T>> actions,
-}) => showCupertinoDialog<T>(
+}) => showAppleDialog<T>(
   context: context,
   barrierDismissible: true,
   builder: (context) => CupertinoAlertDialog(
