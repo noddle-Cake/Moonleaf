@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../platform/device.dart';
 import '../theme.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
@@ -136,6 +137,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   final _themed = GlobalKey();
   BuildContext get _ctx => _themed.currentContext ?? context;
   Rect _content = Rect.zero;
+  EdgeInsets? _pagePad;
   String? _searchQuery;
   bool _systemUiHidden = false;
 
@@ -191,7 +193,9 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   void _applySystemUi() {
     if (!mounted || _settings == null) return;
-    final hide = s.fullscreen && !_menu;
+    // On e-ink the system bars stay hidden with the menu open: showing them
+    // redraws the whole screen.
+    final hide = s.fullscreen && (!_menu || _eink);
     if (hide == _systemUiHidden) return;
     _systemUiHidden = hide;
     SystemChrome.setEnabledSystemUIMode(
@@ -241,9 +245,17 @@ class _ReaderScreenState extends State<ReaderScreen>
     return readerPalettes[dark ? 'dusk' : 'paper']!;
   }
 
+  /// E-ink screen mode: automatic on e-ink devices, the e-reader app
+  /// appearance and E-ink page colors, unless the reader turned it on or off.
+  bool get _eink =>
+      s.eink ?? (Device.eink || widget.ereaderApp || palette.eink);
+
+  /// Sheets and menus appear instantly on e-ink so the screen doesn't flash.
+  AnimationStyle? get _motion => _eink ? AnimationStyle.noAnimation : null;
+
   bool get _animate =>
       s.animation != PageAnimation.none &&
-      !palette.eink &&
+      !_eink &&
       !MediaQuery.of(context).disableAnimations;
 
   // ---------------------------------------------------------------------------
@@ -1077,7 +1089,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       );
     }
     final pal = palette;
-    final readerTheme = _readerTheme(pal);
+    final readerTheme = _readerTheme(pal, eink: _eink);
     return Theme(
       data: readerTheme,
       child: AnnotatedRegion<SystemUiOverlayStyle>(
@@ -1104,7 +1116,11 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Widget _body(BoxConstraints box, ReaderPalette pal) {
-    final pad = MediaQuery.viewPaddingOf(context);
+    final live = MediaQuery.viewPaddingOf(context);
+    // The page keeps its insets while the menu is open, so system bars
+    // appearing with the menu never reflow the text underneath.
+    if (!_menu || _pagePad == null) _pagePad = live;
+    final pad = _pagePad!;
     // The header and status bar grow with the system text size.
     final line = MediaQuery.textScalerOf(context).scale(11.5) * 1.45;
     final headerH = s.header ? line + 10 : 0.0;
@@ -1305,8 +1321,8 @@ class _ReaderScreenState extends State<ReaderScreen>
               ),
             ),
           ),
-        if (_selection != null && !_selecting) _selectionBar(pad),
-        if (_menu) ..._menus(pad, chapterTitle),
+        if (_selection != null && !_selecting) _selectionBar(live),
+        if (_menu) ..._menus(live, chapterTitle),
       ],
     );
   }
@@ -1427,6 +1443,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                         onPressed: _themes,
                       ),
                       PopupMenuButton<String>(
+                        popUpAnimationStyle: _motion,
                         tooltip: 'More',
                         icon: const Icon(CupertinoIcons.ellipsis_circle),
                         onSelected: (v) => switch (v) {
@@ -1612,12 +1629,17 @@ class _ReaderScreenState extends State<ReaderScreen>
 }
 
 /// App theme recolored so menus and sheets sit naturally on the page color.
-ThemeData _readerTheme(ReaderPalette pal) {
+ThemeData _readerTheme(ReaderPalette pal, {bool eink = false}) {
   final base = novelTheme(
     pal.dark ? Brightness.dark : Brightness.light,
     ereader: pal.eink,
   );
   if (pal.eink) return base;
+  final themed = _pageTheme(base, pal, eink);
+  return eink ? withoutMotion(themed) : themed;
+}
+
+ThemeData _pageTheme(ThemeData base, ReaderPalette pal, bool eink) {
   Color tint(double a) =>
       Color.alphaBlend(pal.text.withValues(alpha: a), pal.background);
   final colors = base.colorScheme.copyWith(
@@ -1647,6 +1669,7 @@ ThemeData _readerTheme(ReaderPalette pal) {
     onAccent: app.onAccent,
     destructive: app.destructive,
     bar: tint(.05).withValues(alpha: .86),
+    epaper: eink,
   );
   return base.copyWith(
     colorScheme: colors.copyWith(

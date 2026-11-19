@@ -8,9 +8,14 @@ import 'data/local_novel_service.dart';
 import 'library/downloads.dart';
 import 'library/library_store.dart';
 import 'library/library_screen.dart';
+import 'platform/device.dart';
 import 'theme.dart';
 
-void main() => runApp(const NovelApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Device.load();
+  runApp(const NovelApp());
+}
 
 class NovelApp extends StatefulWidget {
   const NovelApp({

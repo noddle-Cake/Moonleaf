@@ -122,8 +122,13 @@ class Palette {
     required this.onAccent,
     required this.destructive,
     required this.bar,
+    this.epaper = false,
   });
   final bool dark;
+
+  /// Shown on an e-paper screen: solid bars, no blur or motion, whatever the
+  /// colors.
+  final bool epaper;
 
   /// Grouped background, behind sections.
   final Color background;
@@ -204,7 +209,8 @@ class Palette {
     bar: Color(0xFF000000),
   );
 
-  bool get eink => identical(this, einkLight) || identical(this, einkDark);
+  bool get eink =>
+      epaper || identical(this, einkLight) || identical(this, einkDark);
 
   /// The palette carried by a theme.
   static Palette ofTheme(ThemeData theme) =>

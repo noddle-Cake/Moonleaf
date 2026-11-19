@@ -199,6 +199,10 @@ class ReaderSettings extends ChangeNotifier {
   double backZone = .3;
   bool swipe = true, pinch = true, keys = true, fullscreen = true;
 
+  /// E-ink screen mode: no animation, blur or system-bar changes, so the
+  /// screen doesn't flash. Null means automatic.
+  bool? eink;
+
   /// Volume buttons turn pages (volume down goes forward unless reversed).
   bool volumeKeys = true, invertVolume = false;
 
@@ -275,6 +279,7 @@ class ReaderSettings extends ChangeNotifier {
           .toList();
     }
     fullscreen = d['fullscreen'] as bool? ?? fullscreen;
+    eink = d['eink'] as bool?;
     header = d['header'] as bool? ?? header;
     footer = d['footer'] as bool? ?? footer;
     final items = d['footerItems'] as List?;
@@ -315,6 +320,7 @@ class ReaderSettings extends ChangeNotifier {
     'invertVolume': invertVolume,
     'buttons': buttons.map((b) => b.toJson()).toList(),
     'fullscreen': fullscreen,
+    'eink': eink,
     'header': header,
     'footer': footer,
     'footerItems': footerItems.map((f) => f.name).toList(),

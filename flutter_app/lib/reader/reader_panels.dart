@@ -28,6 +28,7 @@ extension _Panels on _ReaderScreenState {
     _setMenu(false);
     final settings = s;
     await showModalBottomSheet<void>(
+      sheetAnimationStyle: _motion,
       context: _ctx,
       isScrollControlled: true,
       showDragHandle: true,
@@ -355,7 +356,7 @@ extension _Panels on _ReaderScreenState {
       ),
       const SizedBox(height: 4),
       Text(
-        'E-ink themes always turn pages instantly to avoid ghosting.',
+        'In E-ink Screen mode pages always turn instantly to avoid ghosting.',
         style: TextStyle(
           fontSize: 12,
           color: Theme.of(_ctx).colorScheme.onSurfaceVariant,
@@ -373,6 +374,42 @@ extension _Panels on _ReaderScreenState {
         subtitle: const Text('Hide system bars while reading'),
         value: settings.fullscreen,
         onChanged: (v) => settings.update((s) => s.fullscreen = v),
+      ),
+      _heading('E-ink Screen'),
+      SizedBox(
+        width: double.infinity,
+        child: CupertinoSlidingSegmentedControl<String>(
+          key: const Key('eink-mode'),
+          groupValue: switch (settings.eink) {
+            null => 'auto',
+            true => 'on',
+            false => 'off',
+          },
+          children: const {
+            'auto': Text('Automatic'),
+            'on': Text('On'),
+            'off': Text('Off'),
+          },
+          onValueChanged: (v) => settings.update(
+            (s) => s.eink = switch (v) {
+              'on' => true,
+              'off' => false,
+              _ => null,
+            },
+          ),
+        ),
+      ),
+      const SizedBox(height: 6),
+      Text(
+        'Stops the screen flashing on e-paper: menus and sheets appear '
+        'instantly, bars are solid and the system bars stay hidden. '
+        'Automatic turns it on for e-ink devices such as Hisense, Boox and '
+        'Kobo${Device.eink ? ' (like this one)' : ''}, and for E-ink page '
+        'colors.',
+        style: TextStyle(
+          fontSize: 12,
+          color: Theme.of(_ctx).colorScheme.onSurfaceVariant,
+        ),
       ),
     ]);
   }
@@ -512,7 +549,7 @@ extension _Panels on _ReaderScreenState {
     ReaderSettings settings, {
     required bool forward,
   }) async {
-    final key = await showCupertinoDialog<LogicalKeyboardKey>(
+    final key = await showAppleDialog<LogicalKeyboardKey>(
       context: _ctx,
       builder: (context) => _ButtonCapture(forward: forward),
     );
@@ -592,6 +629,7 @@ extension _Panels on _ReaderScreenState {
           (t.chapter == _chapter && t.offset <= _offset),
     );
     await showModalBottomSheet<void>(
+      sheetAnimationStyle: _motion,
       context: _ctx,
       isScrollControlled: true,
       showDragHandle: true,
@@ -817,7 +855,7 @@ extension _Panels on _ReaderScreenState {
 
   Future<String?> _noteDialog(String initial) {
     final controller = TextEditingController(text: initial);
-    return showCupertinoDialog<String>(
+    return showAppleDialog<String>(
       context: _ctx,
       builder: (context) => CupertinoAlertDialog(
         title: const Text('Note'),
@@ -850,6 +888,7 @@ extension _Panels on _ReaderScreenState {
 
   Future<void> _editHighlight(Highlight h) async {
     await showModalBottomSheet<void>(
+      sheetAnimationStyle: _motion,
       context: _ctx,
       showDragHandle: true,
       constraints: const BoxConstraints(maxWidth: 640),
@@ -999,6 +1038,7 @@ extension _Panels on _ReaderScreenState {
 
     if (controller.text.isNotEmpty) run(controller.text);
     await showModalBottomSheet<void>(
+      sheetAnimationStyle: _motion,
       context: _ctx,
       isScrollControlled: true,
       showDragHandle: true,
@@ -1079,7 +1119,7 @@ extension _Panels on _ReaderScreenState {
   Future<void> _goToDialog() async {
     final controller = TextEditingController();
     var byPage = _counted && !_scrollMode;
-    final target = await showCupertinoDialog<double>(
+    final target = await showAppleDialog<double>(
       context: _ctx,
       barrierDismissible: true,
       builder: (context) => StatefulBuilder(
@@ -1192,6 +1232,7 @@ extension _Panels on _ReaderScreenState {
         excerpt.length < 700 &&
         (c != _chapter || (o - _offset).abs() > 0)) {
       final go = await showModalBottomSheet<bool>(
+        sheetAnimationStyle: _motion,
         context: _ctx,
         showDragHandle: true,
         constraints: const BoxConstraints(maxWidth: 640),
@@ -1282,6 +1323,7 @@ extension _Panels on _ReaderScreenState {
     final peak = daily.fold(60, math.max);
     String time(int secs) => _duration(secs / 60);
     await showModalBottomSheet<void>(
+      sheetAnimationStyle: _motion,
       context: _ctx,
       isScrollControlled: true,
       showDragHandle: true,
@@ -1405,6 +1447,7 @@ extension _Panels on _ReaderScreenState {
   Future<void> _info() async {
     final words = (doc.length / 5.7).round();
     await showDialog<void>(
+      animationStyle: _motion,
       context: _ctx,
       builder: (context) {
         final cover = doc.cover;
