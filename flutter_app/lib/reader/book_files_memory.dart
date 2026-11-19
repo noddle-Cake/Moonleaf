@@ -25,3 +25,13 @@ Future<String> saveFont(String name, Uint8List bytes) async {
 }
 
 Future<Uint8List?> readFont(String path) async => _fonts[path];
+
+final _data = <String, Map<String, Uint8List>>{};
+
+Future<void> saveData(String folder, String name, Uint8List bytes) async =>
+    (_data[folder] ??= {})[name] = bytes;
+
+Future<Uint8List?> readData(String folder, String name) async =>
+    _data[folder]?[name];
+
+Future<void> deleteData(String folder) async => _data.remove(folder);

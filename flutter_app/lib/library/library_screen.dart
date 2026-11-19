@@ -540,10 +540,7 @@ class _DownloadBadge extends StatelessWidget {
                 size: 16,
                 color: Colors.white,
               )
-            : const CupertinoActivityIndicator(
-                radius: 8,
-                color: Colors.white,
-              ),
+            : const CupertinoActivityIndicator(radius: 8, color: Colors.white),
       ),
     );
   }

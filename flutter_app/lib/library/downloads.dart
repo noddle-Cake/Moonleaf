@@ -4,7 +4,12 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../data/chapter_titles.dart';
+import '../data/epub_writer.dart';
+import '../data/local_novel_service.dart';
 import '../data/novel_service.dart';
+import '../data/site_extractors.dart';
+import 'chapter_store.dart';
 import 'library_store.dart';
 import 'reading.dart';
 
@@ -36,7 +41,15 @@ class DownloadManager extends ChangeNotifier {
     this.poll = const Duration(milliseconds: 800),
     this.fetchCovers = true,
     this.keep = keepEpub,
-  }) : _client = client ?? http.Client();
+    ChapterStore Function(String url)? chapters,
+  }) : _client = client ?? http.Client(),
+       chapters = chapters ?? _deviceChapters;
+
+  static ChapterStore _deviceChapters(String url) =>
+      ChapterStore(DeviceChapterFiles(chapterFolder(url)));
+
+  /// Each novel's downloaded chapters.
+  final ChapterStore Function(String url) chapters;
 
   /// Stores a finished book with its novel.
   final Future<Object?> Function(
@@ -57,7 +70,7 @@ class DownloadManager extends ChangeNotifier {
   final _status = <String, DownloadStatus>{};
   final _queue = <String>[];
   String? _running, _jobId;
-  bool _disposed = false;
+  bool _disposed = false, _cancelRunning = false;
 
   DownloadStatus? statusOf(String url) => _status[url];
   bool get busy => _running != null || _queue.isNotEmpty;
@@ -90,10 +103,35 @@ class DownloadManager extends ChangeNotifier {
       notifyListeners();
       return;
     }
+    if (_running == url) _cancelRunning = true;
     if (_running == url && _jobId != null) {
       try {
         await service.cancel(_jobId!);
       } catch (_) {}
+    }
+  }
+
+  /// Queues books whose download stopped part way, such as when the app was
+  /// closed, so they continue from their last chapter.
+  Future<int> resumeUnfinished() async {
+    if (service is! ChapterSource) return 0;
+    var queued = 0;
+    for (final n in store.novels) {
+      if (n.isLocal || _official(n)) continue;
+      final kept = chapters(n.url);
+      if (await kept.length > 0 && !await kept.done()) {
+        enqueue(n.url);
+        queued++;
+      }
+    }
+    return queued;
+  }
+
+  static bool _official(LibraryNovel novel) {
+    try {
+      return extractorFor(Uri.parse(novel.url)).officialEpub;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -102,6 +140,7 @@ class DownloadManager extends ChangeNotifier {
     while (_queue.isNotEmpty && !_disposed) {
       final url = _queue.removeAt(0);
       _running = url;
+      _cancelRunning = false;
       try {
         await _download(url);
         _status.remove(url);
@@ -131,6 +170,9 @@ class DownloadManager extends ChangeNotifier {
     }
     _status[url] = const DownloadStatus(DownloadPhase.running);
     notifyListeners();
+    if (service case final ChapterSource source when !_official(novel)) {
+      return _downloadChapters(novel, source);
+    }
     final cover = fetchCovers ? await _cover(novel.coverUrl) : null;
     final id = await service.extract(
       url: novel.url,
@@ -173,6 +215,117 @@ class DownloadManager extends ChangeNotifier {
       bytes,
       chapters: chapters > 0 ? chapters : null,
     );
+  }
+
+  void _progress(int count, String title) {
+    _status[_running!] = DownloadStatus(
+      DownloadPhase.running,
+      chapters: count,
+      chapterTitle: title,
+    );
+    notifyListeners();
+  }
+
+  void _stopIfCancelled() {
+    if (_disposed) throw const ApiException('The app closed.');
+    if (_cancelRunning) throw const ApiException('Download cancelled.');
+  }
+
+  /// Downloads chapter by chapter, keeping each one, so only chapters after
+  /// the last kept one are fetched. An update with no new chapters costs one
+  /// page: the last chapter, checked for a Next link.
+  Future<void> _downloadChapters(
+    LibraryNovel novel,
+    ChapterSource source,
+  ) async {
+    final kept = chapters(novel.url);
+    final first = Uri.parse(novel.firstChapter).removeFragment();
+    var order = await kept.order();
+    Uri? next;
+    if (order.isEmpty) {
+      next = first;
+    } else {
+      final last = await kept.chapter(order.last);
+      if (last?.next case final resume?) {
+        // An interrupted download: carry on from the next chapter.
+        next = resume;
+      } else {
+        _progress(order.length, 'Checking for new chapters');
+        final lastUrl = Uri.parse(order.last);
+        try {
+          final again = await source.fetchChapter(lastUrl, order.length);
+          _stopIfCancelled();
+          next = again.next;
+          if (next != null) await kept.add(again);
+        } on ApiException catch (error) {
+          // The last chapter is gone (deleted or renumbered): start over.
+          if (error.statusCode != 404 && error.statusCode != 410) rethrow;
+          await kept.clear();
+          order = const [];
+          next = first;
+        }
+      }
+    }
+    final visited = order.toSet();
+    var fetched = 0;
+    while (next != null) {
+      _stopIfCancelled();
+      final current = next.removeFragment();
+      if (!sameNovel(first, current)) {
+        throw const ApiException(
+          'Stopped because the next link points outside this novel.',
+        );
+      }
+      if (!visited.add(current.toString())) {
+        throw const ApiException(
+          'The site has a repeated chapter link. Extraction stopped to avoid a loop.',
+        );
+      }
+      final pause = source.pauseFor(current);
+      if (fetched > 0 && pause > Duration.zero) {
+        await Future<void>.delayed(pause);
+        _stopIfCancelled();
+      }
+      final number = visited.length;
+      final chapter = await source.fetchChapter(current, number);
+      _stopIfCancelled();
+      await kept.add(chapter);
+      fetched++;
+      _progress(number, cleanChapterTitle(chapter.title, novel.title, number));
+      next = chapter.next;
+    }
+    await kept.finish();
+    if (fetched == 0 && novel.epub != null) return;
+    await _build(novel, kept);
+  }
+
+  /// Packages the kept chapters as the novel's EPUB.
+  Future<void> _build(LibraryNovel novel, ChapterStore kept) async {
+    final all = await kept.all();
+    if (all.isEmpty) throw const ApiException('No chapters were found.');
+    var cover = await kept.cover();
+    if (cover == null && fetchCovers) {
+      cover = await _cover(novel.coverUrl);
+      if (cover != null) await kept.saveCover(cover);
+    }
+    _stopIfCancelled();
+    final book = EpubBook(
+      novel.title,
+      novel.author.isEmpty ? 'Unknown author' : novel.author,
+      [
+        for (var i = 0; i < all.length; i++)
+          NovelChapter(
+            cleanChapterTitle(all[i].title, novel.title, i + 1),
+            all[i].content,
+            all[i].url,
+            all[i].next,
+          ),
+      ],
+      cover,
+    );
+    final bytes = await compute(buildEpub, book);
+    if (_disposed) return;
+    await keep(store, novel.url, novel.metadata, bytes, chapters: all.length);
   }
 
   /// The source cover as PNG or JPEG bytes, or null. Other formats (such as

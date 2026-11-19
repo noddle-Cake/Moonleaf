@@ -29,8 +29,20 @@ class _LocalJob {
   );
 }
 
+/// Fetches one chapter at a time, so a download can keep each chapter as it
+/// arrives, resume after an interruption and check for updates from the last
+/// chapter.
+abstract class ChapterSource {
+  /// Loads and parses one chapter page. Throws [ApiException], with the HTTP
+  /// status code when the site answered with an error.
+  Future<NovelChapter> fetchChapter(Uri url, int number);
+
+  /// How long to wait between chapters from this site.
+  Duration pauseFor(Uri url);
+}
+
 /// Installed apps fetch and package books on the device. No API server is used.
-class LocalNovelService implements NovelService {
+class LocalNovelService implements NovelService, ChapterSource {
   LocalNovelService({http.Client? client, this.browser, this.politeDelay})
     : _client = client ?? http.Client();
   final http.Client _client;
@@ -67,6 +79,7 @@ class LocalNovelService implements NovelService {
       if (response.statusCode != 200) {
         throw ApiException(
           'The novel site returned HTTP ${response.statusCode}. Try again later or check that the chapter is publicly readable.',
+          statusCode: response.statusCode,
         );
       }
       return response.body;
@@ -80,6 +93,18 @@ class LocalNovelService implements NovelService {
       );
     }
   }
+
+  @override
+  Future<NovelChapter> fetchChapter(Uri url, int number) async {
+    if (_closed) throw const ApiException('The app closed this download.');
+    final parser = extractorFor(url);
+    return parser.chapter(await _fetch(url), url, number);
+  }
+
+  @override
+  Duration pauseFor(Uri url) => extractorFor(url).needsBrowser
+      ? politeDelay ?? const Duration(milliseconds: 1500)
+      : Duration.zero;
 
   @override
   Future<BookMetadata> detect(String url) async {

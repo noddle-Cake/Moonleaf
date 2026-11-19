@@ -85,6 +85,8 @@ class _NovelAppState extends State<NovelApp> {
       // The web client's server fetches covers itself.
       fetchCovers: !kIsWeb,
     );
+    // Finish downloads that stopped when the app last closed.
+    _downloads!.resumeUnfinished().catchError((Object _) => 0);
   }
 
   @override
