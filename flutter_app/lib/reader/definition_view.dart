@@ -15,11 +15,15 @@ class DefinitionPreview extends StatelessWidget {
     required this.language,
     required this.color,
     required this.onOpen,
+    this.onSpeak,
     this.dictionary,
   });
   final String word, language;
   final Color color;
   final VoidCallback onOpen;
+
+  /// Reads the word and its definition aloud.
+  final Future<void> Function(String text)? onSpeak;
   final Dictionary? dictionary;
 
   @override
@@ -55,26 +59,49 @@ class DefinitionPreview extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(
-                          text: meaning?.lemma ?? word,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        if (meaning != null)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text.rich(
                           TextSpan(
-                            text: '  ${meaning.partOfSpeech}',
-                            style: TextStyle(
-                              color: muted,
-                              fontStyle: FontStyle.italic,
-                            ),
+                            children: [
+                              TextSpan(
+                                text: meaning?.lemma ?? word,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              if (meaning != null)
+                                TextSpan(
+                                  text: '  ${meaning.partOfSpeech}',
+                                  style: TextStyle(
+                                    color: muted,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                            ],
                           ),
-                      ],
-                    ),
-                    style: TextStyles.subheadline.copyWith(color: color),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                          style: TextStyles.subheadline.copyWith(color: color),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (onSpeak != null && definition != null)
+                        SizedBox(
+                          width: 32,
+                          height: 24,
+                          child: IconButton(
+                            key: const Key('definition-speak'),
+                            tooltip: 'Read aloud',
+                            padding: EdgeInsets.zero,
+                            iconSize: 18,
+                            color: color,
+                            icon: const Icon(CupertinoIcons.speaker_2),
+                            onPressed: () =>
+                                onSpeak!(spokenDefinition(definition)),
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 3),
                   Text(
@@ -99,6 +126,7 @@ Future<void> showDefinition(
   String text, {
   String language = 'en',
   Dictionary? dictionary,
+  Future<void> Function(String text)? onSpeak,
 }) => showAppleSheet<void>(
   context: context,
   medium: true,
@@ -107,8 +135,25 @@ Future<void> showDefinition(
     language: language,
     scroll: scroll,
     dictionary: dictionary,
+    onSpeak: onSpeak,
   ),
 );
+
+/// What's read aloud for a definition: the word, then the first meaning of
+/// up to [meanings] parts of speech.
+String spokenDefinition(Definition d, {int meanings = 1}) {
+  final parts = [d.word];
+  for (final m in d.meanings.take(meanings)) {
+    final lead = meanings > 1 && m.partOfSpeech.isNotEmpty
+        ? '${m.partOfSpeech}: '
+        : '';
+    parts.add('$lead${m.senses.first.definition}');
+  }
+  return parts
+      .map((p) => p.trim())
+      .map((p) => RegExp(r'[.!?]$').hasMatch(p) ? p : '$p.')
+      .join(' ');
+}
 
 class DefinitionSheet extends StatelessWidget {
   const DefinitionSheet({
@@ -117,10 +162,12 @@ class DefinitionSheet extends StatelessWidget {
     required this.language,
     this.scroll,
     this.dictionary,
+    this.onSpeak,
   });
   final String text, language;
   final ScrollController? scroll;
   final Dictionary? dictionary;
+  final Future<void> Function(String text)? onSpeak;
 
   /// Senses shown per part of speech; WordNet has dozens for common verbs.
   static const _senses = 8;
@@ -148,7 +195,19 @@ class DefinitionSheet extends StatelessWidget {
           controller: scroll,
           padding: EdgeInsets.fromLTRB(side, 0, side, Space.xxl),
           children: [
-            Text(text, style: TextStyles.title2),
+            Row(
+              children: [
+                Expanded(child: Text(text, style: TextStyles.title2)),
+                if (onSpeak != null && definition != null)
+                  IconButton(
+                    key: const Key('definition-sheet-speak'),
+                    tooltip: 'Read aloud',
+                    icon: const Icon(CupertinoIcons.speaker_2),
+                    onPressed: () =>
+                        onSpeak!(spokenDefinition(definition, meanings: 3)),
+                  ),
+              ],
+            ),
             const SizedBox(height: Space.s),
             if (!done)
               const Padding(

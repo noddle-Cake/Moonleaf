@@ -52,6 +52,35 @@ class MainActivity : FlutterActivity() {
             }
         }
         current = this
+        val readAloud = MethodChannel(messenger, "moonleaf/readaloud")
+        ReadAloudService.onButton = { button ->
+            runOnUiThread { readAloud.invokeMethod(button, null) }
+        }
+        readAloud.setMethodCallHandler { call, result ->
+            when (call.method) {
+                // Shows or updates the Read Aloud notification.
+                "update" -> {
+                    askForNotifications()
+                    try {
+                        ReadAloudService.update(
+                            this,
+                            call.argument<String>("title") ?: "Reading aloud",
+                            call.argument<String>("text") ?: "",
+                            call.argument<Boolean>("playing") ?: true,
+                        )
+                        result.success(true)
+                    } catch (e: Exception) {
+                        // Android can refuse while the app is in the background.
+                        result.success(false)
+                    }
+                }
+                "stop" -> {
+                    ReadAloudService.stop(this)
+                    result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
         val channel = MethodChannel(messenger, "moonleaf/background")
         background = channel
         DownloadService.onCancel = { runOnUiThread { channel.invokeMethod("cancel", null) } }
@@ -100,6 +129,8 @@ class MainActivity : FlutterActivity() {
         if (current == this) current = null
         shares = null
         DownloadService.onCancel = null
+        ReadAloudService.onButton = null
+        ReadAloudService.stop(this)
         background = null
         // The download can't continue without the app; it resumes on launch.
         DownloadService.stop(this)

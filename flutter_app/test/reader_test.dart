@@ -14,7 +14,10 @@ import 'package:novel_to_epub/reader/reader_screen.dart';
 import 'package:novel_to_epub/reader/reader_settings.dart';
 import 'package:novel_to_epub/reader/typesetter.dart';
 import 'package:novel_to_epub/theme.dart';
+import 'package:novel_to_epub/speech/speech.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'read_aloud_test.dart' show FakeVoice;
 
 /// Original filler prose for tests and previews (no real books).
 String paragraphs(int chapter, int count) => [
@@ -237,9 +240,12 @@ void main() {
 
   group('reader screen', () {
     final looked = <String>[];
+    late FakeVoice voice;
     setUp(() {
       SharedPreferences.setMockInitialValues({});
       looked.clear();
+      voice = FakeVoice();
+      Speech.instance = Speech(engineFor: (_) => voice);
       // Every word means the same thing, without the network.
       Dictionary.instance = Dictionary(
         client: MockClient((request) async {
@@ -415,6 +421,15 @@ void main() {
       expect(find.text('Highlight'), findsOneWidget);
       expect(looked, hasLength(1));
 
+      // The speaker reads the word and its definition.
+      await tester.tap(find.byKey(const Key('definition-speak')));
+      await tester.runAsync(
+        () => Future.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pump();
+      expect(voice.spoken.single, endsWith('. A test meaning.'));
+      voice.complete();
+
       // Tapping the card opens the full definition.
       await tester.tap(find.byKey(const Key('definition-preview')));
       await tester.runAsync(
@@ -433,6 +448,64 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Highlight'), findsOneWidget);
       expect(find.byKey(const Key('definition-preview')), findsNothing);
+    });
+
+    testWidgets('reads aloud, turning pages as it goes', (tester) async {
+      await open(tester);
+      String page() => tester
+          .widgetList<Text>(find.byType(Text))
+          .map((t) => t.data ?? '')
+          .firstWhere((t) => RegExp(r'^\d+ / \d+').hasMatch(t));
+      Future<void> settle() async {
+        await tester.runAsync(
+          () => Future.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await tester.tapAt(const Offset(195, 40));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Read aloud'));
+      await settle();
+      expect(voice.spoken, hasLength(1));
+      expect(find.byKey(const Key('read-aloud-play')), findsOneWidget);
+      expect(find.byTooltip('Pause'), findsOneWidget);
+
+      // Sentence after sentence: from the title page into chapter 1, then
+      // onto its next page.
+      String pageNumber() => page().split(' ').first;
+      for (final next in ['2', '3']) {
+        for (var i = 0; i < 60 && pageNumber() != next; i++) {
+          voice.complete();
+          await settle();
+        }
+        expect(pageNumber(), next);
+      }
+      expect(voice.spoken.take(3), [
+        'The Lantern Keeper',
+        'A. Writer',
+        'Chapter 1',
+      ]);
+      expect(voice.spoken.length, greaterThan(6));
+      // Nothing is read twice in a row.
+      for (var i = 1; i < voice.spoken.length; i++) {
+        expect(voice.spoken[i], isNot(voice.spoken[i - 1]));
+      }
+
+      // The speed button steps up from normal speed.
+      await tester.tap(find.byKey(const Key('read-aloud-speed')));
+      await settle();
+      expect(Speech.instance.rate, 1.25);
+
+      await tester.tap(find.byTooltip('Pause'));
+      await settle();
+      expect(voice.stops, greaterThan(0));
+      expect(find.byTooltip('Play'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Stop reading aloud'));
+      await settle();
+      expect(find.byKey(const Key('read-aloud-play')), findsNothing);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('search finds text across chapters', (tester) async {
