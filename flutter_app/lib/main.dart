@@ -10,12 +10,14 @@ import 'library/library_store.dart';
 import 'library/library_screen.dart';
 import 'platform/background.dart';
 import 'platform/device.dart';
+import 'platform/share.dart';
 import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Device.load();
-  runApp(const NovelApp());
+  await SharedLinks.start();
+  runApp(const NovelApp(welcome: true));
 }
 
 class NovelApp extends StatefulWidget {
@@ -24,12 +26,16 @@ class NovelApp extends StatefulWidget {
     this.service,
     this.store,
     this.autoDownload = true,
+    this.welcome = false,
   });
   final NovelService? service;
   final LibraryStore? store;
 
   /// Download newly added novels in the background (off in some tests).
   final bool autoDownload;
+
+  /// Show the welcome guide on the first launch.
+  final bool welcome;
   @override
   State<NovelApp> createState() => _NovelAppState();
 }
@@ -198,6 +204,7 @@ class _NovelAppState extends State<NovelApp> {
             store: store,
             service: _service,
             downloads: _downloads,
+            welcome: widget.welcome,
           ),
         );
       },

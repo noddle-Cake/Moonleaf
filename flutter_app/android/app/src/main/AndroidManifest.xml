@@ -31,6 +31,21 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- "Share → Moonleaf" from a browser adds the story or chapter. -->
+        <activity
+            android:name=".ShareActivity"
+            android:exported="true"
+            android:label="Add to Moonleaf"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
         <service
             android:name=".DownloadService"
             android:exported="false"
