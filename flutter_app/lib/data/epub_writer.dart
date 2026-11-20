@@ -8,6 +8,17 @@ import 'package:xml/xml.dart';
 
 import 'site_extractors.dart';
 
+/// The EPUB file name (without extension) of the chapter at [url].
+String chapterFileId(Uri url) {
+  final text = url.removeFragment().toString();
+  var a = 0x811c9dc5, b = 0x050c5d1f;
+  for (final unit in text.codeUnits) {
+    a = ((a ^ unit) * 0x01000193) & 0xFFFFFFFF;
+    b = ((b ^ unit) * 0x01000193) & 0xFFFFFFFF;
+  }
+  return 'ch-${a.toRadixString(36)}${b.toRadixString(36)}';
+}
+
 class EpubBook {
   const EpubBook(this.title, this.author, this.chapters, this.cover);
   final String title;
@@ -225,9 +236,13 @@ Uint8List buildEpub(EpubBook book) {
   );
   spine.add(element('itemref', {'idref': 'title'}));
   final links = <XmlNode>[];
+  final ids = <String>{};
   for (var i = 0; i < book.chapters.length; i++) {
     final chapter = book.chapters[i];
-    final id = 'chapter${(i + 1).toString().padLeft(5, '0')}';
+    // Named after the chapter's link, so a chapter keeps its file when
+    // chapters are added before it and the reader can follow it.
+    var id = chapterFileId(chapter.url);
+    if (!ids.add(id)) id = '$id-${i + 1}';
     add(
       'EPUB/$id.xhtml',
       xhtml(chapter.title, [

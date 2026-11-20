@@ -6,8 +6,12 @@ import '../data/site_extractors.dart';
 import '../ui/tokens.dart';
 import 'library_store.dart';
 
+/// A novel added from the Add sheet.
+typedef AddedNovel = ({String url, String? from});
+
 /// The Add a Novel sheet: Cancel and Add at the top, a link field below.
-/// Pops with the novel's library address once it's saved.
+/// Pops with an [AddedNovel] once it's saved: the novel's library address,
+/// and the pasted chapter link when one was pasted.
 class AddNovelDialog extends StatefulWidget {
   const AddNovelDialog({
     super.key,
@@ -39,7 +43,8 @@ class _AddNovelDialogState extends State<AddNovelDialog> {
     });
     try {
       final url = _url.text.trim();
-      extractorFor(Uri.parse(url));
+      final link = Uri.parse(url);
+      final chapter = extractorFor(link).isChapter(link);
       final metadata = await widget.service.detect(url);
       if (!mounted) return;
       // A chapter link is saved under its novel's main page.
@@ -47,7 +52,10 @@ class _AddNovelDialogState extends State<AddNovelDialog> {
       await widget.store.add(saved, metadata);
       // Return the library key so the caller can open and download it.
       if (mounted) {
-        Navigator.pop(context, widget.store.find(saved)?.url ?? saved);
+        Navigator.pop<AddedNovel>(context, (
+          url: widget.store.find(saved)?.url ?? saved,
+          from: chapter ? url : null,
+        ));
       }
     } catch (e) {
       if (mounted) {

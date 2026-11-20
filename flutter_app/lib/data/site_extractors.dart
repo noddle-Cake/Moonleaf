@@ -691,6 +691,23 @@ class StandardEbooksExtractor extends SiteExtractor {
 }
 
 /// Prevent a navigation link from silently extracting a different novel.
+/// Identifies a chapter regardless of link details such as `www.`, a
+/// trailing slash or the title slug, so the same chapter linked two ways is
+/// recognized.
+String chapterKey(Uri url) {
+  final host = url.host.toLowerCase().replaceFirst(RegExp(r'^(www|m)\.'), '');
+  final parts = url.pathSegments.where((s) => s.isNotEmpty).toList();
+  final at = parts.indexOf('chapter');
+  if (at >= 0 && at + 1 < parts.length) {
+    return '$host/chapter/${parts[at + 1]}';
+  }
+  if (parts.length >= 3 && parts[0] == 's') {
+    return '$host/s/${parts[1]}/${parts[2]}';
+  }
+  final query = url.query.isEmpty ? '' : '?${url.query}';
+  return '$host/${parts.join('/')}$query';
+}
+
 bool sameNovel(Uri first, Uri next) {
   String host(Uri u) =>
       u.host.toLowerCase().replaceFirst(RegExp(r'^www\.'), '');

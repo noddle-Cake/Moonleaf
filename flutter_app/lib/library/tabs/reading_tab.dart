@@ -21,7 +21,8 @@ extension _ReadingTab on _LibraryScreenState {
     Widget resume(LibraryNovel n) => IconButton(
       tooltip: 'Resume ${n.title}',
       icon: const Icon(CupertinoIcons.play_circle_fill, size: 30),
-      onPressed: () => readNovel(context, store, n),
+      onPressed: () =>
+          readNovel(context, store, n, downloads: widget.downloads),
     );
     return _page(
       title: 'Reading',

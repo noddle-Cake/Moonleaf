@@ -5,8 +5,9 @@
 /// - Keeps the site's own chapter number when the name starts with one
 ///   ("Ch. 12 - The Fall", "12. The Fall" → "Chapter 12: The Fall").
 /// - Otherwise numbers the chapter by its position ("Prologue" →
-///   "Chapter 1: Prologue").
-String cleanChapterTitle(String raw, String bookTitle, int position) {
+///   "Chapter 1: Prologue"), or leaves it unnumbered when the position isn't
+///   known yet.
+String cleanChapterTitle(String raw, String bookTitle, int? position) {
   var title = raw.replaceAll(RegExp(r'\s+'), ' ').trim();
   final book = bookTitle.replaceAll(RegExp(r'\s+'), ' ').trim();
   if (book.length >= 3) {
@@ -35,6 +36,7 @@ String cleanChapterTitle(String raw, String bookTitle, int position) {
         ? 'Chapter $number'
         : 'Chapter $number: $rest';
   }
+  if (position == null) return title.isEmpty ? 'Untitled chapter' : title;
   return title.isEmpty ? 'Chapter $position' : 'Chapter $position: $title';
 }
 

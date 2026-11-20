@@ -66,6 +66,7 @@ void main() {
   late DownloadManager downloads;
   late Map<String, ChapterStore> stores;
   final kept = <List<String>>[];
+  final starts = <String?>[];
 
   final novel = LibraryNovel(
     url: 'https://www.royalroad.com/fiction/7/tide',
@@ -82,10 +83,17 @@ void main() {
     fetchCovers: false,
     chapters: (url) =>
         stores.putIfAbsent(url, () => ChapterStore(MemoryChapterFiles())),
-    keep: (store, url, metadata, bytes, {chapters}) async {
+    keep: (store, url, metadata, bytes, {chapters, since, startAt}) async {
       final doc = EpubDocument.parse(Uint8List.fromList(bytes));
       kept.add([for (final t in doc.toc) t.title]);
-      await store.attachEpub(url, 'book', metadata, chapters: chapters);
+      starts.add(startAt);
+      await store.attachEpub(
+        url,
+        'book',
+        metadata,
+        chapters: chapters,
+        since: since,
+      );
       return null;
     },
   );
@@ -102,6 +110,7 @@ void main() {
     library = LibraryStore(novels: [novel]);
     stores = {};
     kept.clear();
+    starts.clear();
     downloads = manager();
   });
   tearDown(() => downloads.dispose());
@@ -109,7 +118,10 @@ void main() {
   test('downloads every chapter once and names them', () async {
     await run(novel.url);
     expect(site.fetched, [1, 2, 3]);
-    expect(kept.single, [
+    // Saved after the first chapter, so reading can start, then complete.
+    expect(kept.first, ['Chapter 1: Part 1']);
+    expect(kept, hasLength(2));
+    expect(kept.last, [
       'Chapter 1: Part 1',
       'Chapter 2: Part 2',
       'Chapter 3: Part 3',
@@ -120,9 +132,10 @@ void main() {
   test('an update with nothing new loads only the last chapter', () async {
     await run(novel.url);
     site.fetched.clear();
+    final saves = kept.length;
     await run(novel.url);
     expect(site.fetched, [3]);
-    expect(kept, hasLength(1), reason: 'the book is not rebuilt');
+    expect(kept, hasLength(saves), reason: 'the book is not rebuilt');
   });
 
   test('an update fetches only the new chapters and adds them', () async {
@@ -141,11 +154,12 @@ void main() {
     site.failOnce.add(3);
     await run(novel.url);
     expect(downloads.statusOf(novel.url)?.phase, DownloadPhase.failed);
-    expect(kept, isEmpty);
+    // What arrived before the failure can already be read.
+    expect(kept.last, hasLength(1));
     site.fetched.clear();
     await run(novel.url);
     expect(site.fetched, [3]);
-    expect(kept.single, hasLength(3));
+    expect(kept.last, hasLength(3));
   });
 
   test('a deleted last chapter starts the book over', () async {
@@ -162,15 +176,59 @@ void main() {
   test('downloads stopped by closing the app resume on launch', () async {
     site.failOnce.add(2);
     await run(novel.url);
-    expect(kept, isEmpty);
+    expect(kept.last, hasLength(1));
     downloads.dispose();
     downloads = manager();
     expect(await downloads.resumeUnfinished(), 1);
     while (downloads.busy) {
       await Future<void>.delayed(const Duration(milliseconds: 5));
     }
-    expect(kept.single, hasLength(3));
+    expect(kept.last, hasLength(3));
     // A finished book isn't queued again.
     expect(await downloads.resumeUnfinished(), 0);
+  });
+
+  group('a pasted chapter link', () {
+    Future<void> runFrom(String from) async {
+      downloads.enqueue(novel.url, from: from);
+      while (downloads.busy) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+    }
+
+    test('starts at that chapter, then fetches the earlier ones', () async {
+      site.count = 5;
+      await runFrom(ch(3));
+      expect(site.fetched, [3, 4, 5, 1, 2]);
+      // Readable right away, unnumbered until the earlier chapters arrive.
+      expect(kept.first, ['Part 3']);
+      expect(kept.last, [for (var i = 1; i <= 5; i++) 'Chapter $i: Part $i']);
+      expect(starts.toSet(), {ch(3)});
+      expect(await stores[novel.url]!.complete(), isTrue);
+      expect(await downloads.resumeUnfinished(), 0);
+    });
+
+    test('resumes the earlier chapters after an interruption', () async {
+      site
+        ..count = 5
+        ..failOnce.add(2);
+      await runFrom(ch(3));
+      expect(await stores[novel.url]!.complete(), isFalse);
+      site.fetched.clear();
+      expect(await downloads.resumeUnfinished(), 1);
+      while (downloads.busy) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      // The newest chapter is checked once, then only chapter 2 is missing.
+      expect(site.fetched, [5, 2]);
+      expect(kept.last, hasLength(5));
+      expect(kept.last[1], 'Chapter 2: Part 2');
+    });
+
+    test('a link to chapter 1 is an ordinary download', () async {
+      await runFrom(ch(1));
+      expect(site.fetched, [1, 2, 3]);
+      expect(await stores[novel.url]!.head(), isNull);
+    });
   });
 }

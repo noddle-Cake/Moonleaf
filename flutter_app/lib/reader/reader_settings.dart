@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -467,6 +469,7 @@ class BookState {
       charsRead = d['charsRead'] as int? ?? 0,
       pagesTurned = d['pagesTurned'] as int? ?? 0,
       daily = Map<String, int>.from(d['daily'] as Map? ?? {}),
+      spine = List<String>.from(d['spine'] as List? ?? const []),
       started = DateTime.tryParse(d['started'] as String? ?? ''),
       finished = DateTime.tryParse(d['finished'] as String? ?? '');
   final String id;
@@ -475,11 +478,69 @@ class BookState {
   final List<Bookmark> bookmarks;
   final List<Highlight> highlights;
 
+  /// The book's chapter files when this was saved, so positions can follow
+  /// their chapters when a growing book gains chapters before them.
+  List<String> spine;
+
   /// Seconds read per day, keyed by yyyy-mm-dd.
   final Map<String, int> daily;
   DateTime? started, finished;
 
   static String key(String id) => 'moonleaf_reader_book_$id';
+
+  /// Whether nothing has been read or marked in this book yet.
+  bool get untouched =>
+      started == null &&
+      chapter == 0 &&
+      offset == 0 &&
+      bookmarks.isEmpty &&
+      highlights.isEmpty;
+
+  /// Moves the position, bookmarks and highlights to the same chapters in a
+  /// new version of the book whose chapter files are [paths]. Returns
+  /// whether anything changed.
+  bool follow(List<String> paths) {
+    if (listEquals(spine, paths)) return false;
+    final old = spine;
+    spine = List.of(paths);
+    // Saved before chapters were tracked: positions are already indexes.
+    if (old.isEmpty) return true;
+    final index = {for (var i = 0; i < paths.length; i++) paths[i]: i};
+    // Chapter files were renamed (books made by older versions): keep
+    // positions as they are.
+    if (old.where(index.containsKey).length * 2 < old.length) return true;
+    int? map(int c) => c >= 0 && c < old.length ? index[old[c]] : null;
+    int keep(int c) => map(c) ?? c.clamp(0, math.max(0, paths.length - 1));
+    final moved = keep(chapter);
+    if (moved != chapter) {
+      chapter = moved;
+    } else if (map(chapter) == null) {
+      offset = 0;
+    }
+    final marks = [
+      for (final b in bookmarks)
+        Bookmark(keep(b.chapter), b.offset, b.snippet, b.created),
+    ];
+    bookmarks
+      ..clear()
+      ..addAll(marks);
+    final notes = [
+      for (final h in highlights)
+        Highlight(
+          keep(h.chapter),
+          h.start,
+          h.end,
+          h.text,
+          h.created,
+          note: h.note,
+          color: h.color,
+        ),
+    ];
+    highlights
+      ..clear()
+      ..addAll(notes);
+    return true;
+  }
 
   static Future<BookState> load(String id) async {
     final prefs = await SharedPreferences.getInstance();
@@ -527,6 +588,7 @@ class BookState {
     'charsRead': charsRead,
     'pagesTurned': pagesTurned,
     'daily': daily,
+    'spine': spine,
     'started': started?.toIso8601String(),
     'finished': finished?.toIso8601String(),
   };

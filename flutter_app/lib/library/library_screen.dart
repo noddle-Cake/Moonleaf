@@ -96,7 +96,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   /// Opens the Add a Novel sheet, then the novel's page while it downloads.
   Future<void> _add([String? initial]) async {
-    final added = await showAppleSheet<String>(
+    final added = await showAppleSheet<AddedNovel>(
       context: context,
       builder: (context, _) => AddNovelDialog(
         store: store,
@@ -110,11 +110,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
       _shelf = 'All';
       _search.clear();
     });
-    final novel = store.find(added);
+    final novel = store.find(added.url);
     if (novel == null) return;
     // Adding a link means you want to read it: start downloading right away
-    // and show the book's page while chapters arrive.
-    if (novel.epub == null) widget.downloads?.enqueue(novel.url);
+    // and show the book's page while chapters arrive. A chapter link starts
+    // there, as if the chapters before it were read.
+    if (novel.epub == null) {
+      widget.downloads?.enqueue(novel.url, from: added.from);
+    }
     await _open(novel);
   }
 
@@ -188,7 +191,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     if (!mounted || choice == null) return;
     switch (choice) {
       case 'read':
-        await readNovel(context, store, novel);
+        await readNovel(context, store, novel, downloads: widget.downloads);
       case 'open':
         await _open(novel);
       case 'shelf':

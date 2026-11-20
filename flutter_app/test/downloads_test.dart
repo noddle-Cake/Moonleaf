@@ -82,7 +82,7 @@ void main() {
       service: service,
       poll: Duration.zero,
       fetchCovers: false,
-      keep: (store, url, metadata, bytes, {chapters}) async {
+      keep: (store, url, metadata, bytes, {chapters, since, startAt}) async {
         kept[url] = chapters ?? -1;
         return null;
       },
@@ -118,7 +118,7 @@ void main() {
       service: service,
       poll: Duration.zero,
       fetchCovers: false,
-      keep: (_, _, _, _, {chapters}) async => null,
+      keep: (_, _, _, _, {chapters, since, startAt}) async => null,
     );
     addTearDown(downloads.dispose);
     downloads.enqueue(a.url);
@@ -140,7 +140,7 @@ void main() {
       service: FakeService(),
       poll: Duration.zero,
       fetchCovers: false,
-      keep: (_, _, _, _, {chapters}) async => null,
+      keep: (_, _, _, _, {chapters, since, startAt}) async => null,
     );
     addTearDown(downloads.dispose);
     downloads.enqueue(a.url);
