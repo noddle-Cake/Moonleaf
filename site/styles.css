@@ -550,6 +550,9 @@ section {
   font-size: 1.7rem;
   margin-top: 1.6em;
 }
+.prose h3 {
+  margin-top: 1.4em;
+}
 .prose ol,
 .prose ul {
   padding-left: 1.3em;
