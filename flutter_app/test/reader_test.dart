@@ -4,8 +4,11 @@ import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:novel_to_epub/data/epub_writer.dart';
 import 'package:novel_to_epub/data/site_extractors.dart';
+import 'package:novel_to_epub/reader/dictionary.dart';
 import 'package:novel_to_epub/reader/epub_document.dart';
 import 'package:novel_to_epub/reader/reader_screen.dart';
 import 'package:novel_to_epub/reader/reader_settings.dart';
@@ -233,7 +236,22 @@ void main() {
   });
 
   group('reader screen', () {
-    setUp(() => SharedPreferences.setMockInitialValues({}));
+    final looked = <String>[];
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+      looked.clear();
+      // Every word means the same thing, without the network.
+      Dictionary.instance = Dictionary(
+        client: MockClient((request) async {
+          looked.add(Uri.decodeComponent(request.url.pathSegments.last));
+          return http.Response(
+            '{"en":[{"partOfSpeech":"Noun","definitions":'
+            '[{"definition":"A test meaning.","examples":["An example."]}]}]}',
+            200,
+          );
+        }),
+      );
+    });
 
     Future<ReaderSettings> open(
       WidgetTester tester, {
@@ -378,6 +396,45 @@ void main() {
       expect(saved.highlights.single.text, isNotEmpty);
     });
 
+    testWidgets('holding a word shows its definition', (tester) async {
+      final settings = await open(tester);
+      for (var i = 0; i < 2; i++) {
+        await tester.tapAt(const Offset(370, 420));
+        await tester.runAsync(
+          () => Future.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pumpAndSettle();
+      }
+      await tester.longPressAt(const Offset(120, 300));
+      await tester.runAsync(
+        () => Future.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('definition-preview')), findsOneWidget);
+      expect(find.text('A test meaning.'), findsOneWidget);
+      expect(find.text('Highlight'), findsOneWidget);
+      expect(looked, hasLength(1));
+
+      // Tapping the card opens the full definition.
+      await tester.tap(find.byKey(const Key('definition-preview')));
+      await tester.runAsync(
+        () => Future.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('An example.'), findsOneWidget);
+      expect(find.text('Open in Wiktionary'), findsOneWidget);
+      expect(find.text('Highlight'), findsNothing);
+      await tester.tapAt(const Offset(195, 20));
+      await tester.pumpAndSettle();
+
+      // Turned off, holding a word only shows the menu.
+      settings.update((s) => s.holdToDefine = false);
+      await tester.longPressAt(const Offset(120, 300));
+      await tester.pumpAndSettle();
+      expect(find.text('Highlight'), findsOneWidget);
+      expect(find.byKey(const Key('definition-preview')), findsNothing);
+    });
+
     testWidgets('search finds text across chapters', (tester) async {
       await open(tester);
       await tester.tapAt(const Offset(195, 40));
@@ -479,6 +536,8 @@ void main() {
             )
             .first,
       );
+      await tester.ensureVisible(find.text('Button for next page'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Button for next page'));
       await tester.pumpAndSettle();
       expect(

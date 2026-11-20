@@ -14,6 +14,8 @@ import '../theme.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
 import 'book_files.dart';
+import 'definition_view.dart';
+import 'dictionary.dart';
 import 'epub_document.dart';
 import 'reader_settings.dart';
 import 'typesetter.dart';
@@ -1683,19 +1685,27 @@ class _ReaderScreenState extends State<ReaderScreen>
     const menuHeight = 46.0;
     final screen = MediaQuery.sizeOf(_ctx);
     final anchor = _selectionRect();
+    // Holding a single word shows its definition above the actions.
+    final word = s.holdToDefine ? Dictionary.lookupText(text, words: 1) : null;
+    final height =
+        menuHeight +
+        (word == null ? 0 : MediaQuery.textScalerOf(_ctx).scale(76));
+    final width = math.min(440.0, screen.width - 24 - pad.left - pad.right);
     double? top, bottom;
     if (anchor == null) {
       bottom = pad.bottom + 40;
-    } else if (anchor.top - menuHeight - 12 > pad.top + 8) {
-      top = anchor.top - menuHeight - 12;
+    } else if (anchor.top - height - 12 > pad.top + 8) {
+      bottom = screen.height - anchor.top + 12;
     } else {
-      top = math.min(anchor.bottom + 12, screen.height - menuHeight - 24);
+      top = math.min(anchor.bottom + 12, screen.height - height - 24);
     }
     const ink = Color(0xFF2C2C2E);
+    final foreground = palette.eink ? palette.text : Colors.white;
     Widget action(String label, VoidCallback onTap) => TextButton(
       onPressed: onTap,
       style: TextButton.styleFrom(
-        foregroundColor: Colors.white,
+        // Dark ink normally; on e-ink the menu is the page color.
+        foregroundColor: foreground,
         minimumSize: const Size(minTarget, menuHeight),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         textStyle: TextStyles.subheadline.copyWith(fontWeight: FontWeight.w500),
@@ -1703,7 +1713,8 @@ class _ReaderScreenState extends State<ReaderScreen>
       ),
       child: Text(label),
     );
-    Widget divider() => Container(width: .5, height: 22, color: Colors.white24);
+    final rule = palette.eink ? palette.text : Colors.white24;
+    Widget divider() => Container(width: .5, height: 22, color: rule);
     final actions = [
       action('Copy', () {
         Clipboard.setData(ClipboardData(text: text));
@@ -1746,22 +1757,55 @@ class _ReaderScreenState extends State<ReaderScreen>
                     ),
                   )
                 : Theme.of(_ctx),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (var i = 0; i < actions.length; i++) ...[
-                    if (i > 0) divider(),
-                    actions[i],
-                  ],
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (word != null) ...[
+                  SizedBox(
+                    width: width,
+                    child: DefinitionPreview(
+                      word: word,
+                      language: _language,
+                      color: foreground,
+                      onOpen: () => _lookUp(text, 'dictionary'),
+                    ),
+                  ),
+                  Container(width: width, height: .5, color: rule),
                 ],
-              ),
+                SizedBox(
+                  width: word == null ? null : width,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minWidth: word == null ? 0 : width,
+                      ),
+                      child: Center(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (var i = 0; i < actions.length; i++) ...[
+                              if (i > 0) divider(),
+                              actions[i],
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  /// The book's language code, for the dictionary.
+  String get _language {
+    final lang = doc.language.split('-').first.toLowerCase();
+    return RegExp(r'^[a-z]{2,3}$').hasMatch(lang) ? lang : 'en';
   }
 
   void _toast(String message) {

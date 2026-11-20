@@ -468,6 +468,14 @@ extension _Panels on _ReaderScreenState {
       value: settings.pinch,
       onChanged: (v) => settings.update((s) => s.pinch = v),
     ),
+    SwitchListTile(
+      key: const Key('hold-to-define'),
+      contentPadding: EdgeInsets.zero,
+      title: const Text('Hold a word to see its definition'),
+      subtitle: const Text('Looks words up on Wiktionary, or offline'),
+      value: settings.holdToDefine,
+      onChanged: (v) => settings.update((s) => s.holdToDefine = v),
+    ),
     _heading('Buttons'),
     SwitchListTile(
       key: const Key('volume-keys'),
@@ -1276,8 +1284,16 @@ extension _Panels on _ReaderScreenState {
     final query = text.replaceAll(RegExp(r'\s+'), ' ').trim();
     if (query.isEmpty) return;
     final word = query.replaceAll(RegExp(r'''^[^\w]+|[^\w]+$'''), '');
-    final lang = doc.language.split('-').first.toLowerCase();
-    final wiki = RegExp(r'^[a-z]{2,3}$').hasMatch(lang) ? lang : 'en';
+    final wiki = _language;
+    // Words and short phrases are defined right here.
+    if (kind == 'dictionary') {
+      if (Dictionary.lookupText(query) case final term?) {
+        _selection = null;
+        _refresh();
+        await showDefinition(_ctx, term, language: _language);
+        return;
+      }
+    }
     final uri = switch (kind) {
       'dictionary' => Uri.https('en.wiktionary.org', '/wiki/Special:Search', {
         'search': word.contains(' ') ? word : word.toLowerCase(),

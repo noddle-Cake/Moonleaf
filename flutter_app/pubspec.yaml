@@ -34,6 +34,8 @@ flutter:
     - assets/icon.png
     - assets/fonts/Fraunces-LICENSE.txt
     - assets/fonts/DMSans-LICENSE.txt
+    - assets/dictionary/wordnet.txt.gz
+    - assets/dictionary/WordNet-LICENSE.txt
   fonts:
     - family: DM Sans
       fonts:
