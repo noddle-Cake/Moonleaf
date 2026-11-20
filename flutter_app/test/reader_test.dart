@@ -450,6 +450,14 @@ void main() {
       expect(second, isNot(start));
       await press(LogicalKeyboardKey.audioVolumeUp);
       expect(page(), start);
+      // Still works after the reader loses focus, as it does when the app
+      // steps aside for a permission prompt or the share sheet.
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pump();
+      await press(LogicalKeyboardKey.audioVolumeDown);
+      expect(page(), second);
+      await press(LogicalKeyboardKey.audioVolumeUp);
+      expect(page(), start);
       settings.update((s) => s.volumeKeys = false);
       await press(LogicalKeyboardKey.audioVolumeDown);
       expect(page(), start);

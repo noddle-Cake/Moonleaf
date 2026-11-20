@@ -172,6 +172,11 @@ class _ReaderScreenState extends State<ReaderScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Buttons are heard from the keyboard itself rather than through focus:
+    // focus is lost whenever the app steps aside (a permission prompt, the
+    // share sheet, the notification shade), and the volume buttons would
+    // then change the volume instead of turning pages.
+    HardwareKeyboard.instance.addHandler(_hardwareKey);
     _counts = List.filled(doc.chapters.length, null);
     _updates = widget.updates?.listen((bytes) {
       _nextBytes = bytes;
@@ -321,6 +326,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    HardwareKeyboard.instance.removeHandler(_hardwareKey);
     _updates?.cancel();
     widget.downloading?.removeListener(_rebuild);
     _settings?.removeListener(_settingsChanged);
@@ -831,7 +837,26 @@ class _ReaderScreenState extends State<ReaderScreen>
         .trim();
   }
 
-  KeyEventResult _key(FocusNode node, KeyEvent event) {
+  /// The last button press the reader acted on.
+  KeyEvent? _handledKey;
+
+  bool _hardwareKey(KeyEvent event) {
+    // Only while the reader is on top: dialogs and sheets over it (such as
+    // assigning a button) get the buttons themselves.
+    if (!mounted || !(ModalRoute.of(context)?.isCurrent ?? true)) return false;
+    final handled = _key(event) == KeyEventResult.handled;
+    if (handled) _handledKey = event;
+    return handled;
+  }
+
+  /// Focus still sees every press after [_hardwareKey]; presses the reader
+  /// acted on stop here so they don't also move focus or press buttons.
+  KeyEventResult _focusKey(FocusNode node, KeyEvent event) =>
+      identical(event, _handledKey)
+      ? KeyEventResult.handled
+      : KeyEventResult.ignored;
+
+  KeyEventResult _key(KeyEvent event) {
     if (event is KeyUpEvent || _settings == null) {
       return KeyEventResult.ignored;
     }
@@ -1226,7 +1251,7 @@ class _ReaderScreenState extends State<ReaderScreen>
             backgroundColor: pal.background,
             body: Focus(
               autofocus: true,
-              onKeyEvent: _key,
+              onKeyEvent: _focusKey,
               child: LayoutBuilder(builder: (context, box) => _body(box, pal)),
             ),
           ),
