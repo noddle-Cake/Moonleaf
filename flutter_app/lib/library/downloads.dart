@@ -76,6 +76,23 @@ class DownloadManager extends ChangeNotifier {
   bool _disposed = false, _cancelRunning = false;
 
   DownloadStatus? statusOf(String url) => _status[url];
+
+  /// The novel downloading now, if any.
+  String? get current => _running;
+
+  /// How many novels are waiting their turn.
+  int get queued => _queue.length;
+
+  /// Stops the current download and empties the queue. Kept chapters stay,
+  /// so downloading again continues where it stopped.
+  Future<void> cancelAll() async {
+    for (final url in List.of(_queue)) {
+      await cancel(url);
+    }
+    final running = _running;
+    if (running != null) await cancel(running);
+  }
+
   bool get busy => _running != null || _queue.isNotEmpty;
 
   /// Queues every novel from a website that has a kept book, to collect new
