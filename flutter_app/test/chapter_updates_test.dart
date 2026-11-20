@@ -7,6 +7,7 @@ import 'package:novel_to_epub/data/site_extractors.dart';
 import 'package:novel_to_epub/library/chapter_store.dart';
 import 'package:novel_to_epub/library/downloads.dart';
 import 'package:novel_to_epub/library/library_store.dart';
+import 'package:novel_to_epub/platform/background.dart';
 import 'package:novel_to_epub/reader/epub_document.dart';
 
 const base = 'https://www.royalroad.com/fiction/7/tide/chapter';
@@ -230,5 +231,36 @@ void main() {
       expect(site.fetched, [1, 2, 3]);
       expect(await stores[novel.url]!.head(), isNull);
     });
+  });
+
+  test('the background notification describes the download', () async {
+    final other = LibraryNovel(
+      url: 'https://www.royalroad.com/fiction/8/sea',
+      title: 'Sea',
+      author: '',
+      firstChapter: 'https://www.royalroad.com/fiction/8/sea/chapter/1/a',
+      addedAt: DateTime(2026),
+    );
+    library = LibraryStore(novels: [novel, other]);
+    downloads.dispose();
+    downloads = manager();
+    final texts = <(String, String)>[];
+    downloads.addListener(() {
+      if (downloads.current != null) {
+        texts.add(BackgroundDownloads.describe(downloads, library));
+      }
+    });
+    downloads
+      ..enqueue(novel.url)
+      ..enqueue(other.url);
+    await Future<void>.delayed(Duration.zero);
+    await downloads.cancelAll();
+    while (downloads.busy) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    expect(texts.first.$1, 'Downloading Tide');
+    expect(texts.any((t) => t.$2.contains('1 more book waiting')), isTrue);
+    expect(downloads.statusOf(other.url), isNull, reason: 'removed from queue');
+    expect(site.fetched.length, lessThan(3), reason: 'stopped early');
   });
 }

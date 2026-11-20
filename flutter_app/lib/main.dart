@@ -8,6 +8,7 @@ import 'data/local_novel_service.dart';
 import 'library/downloads.dart';
 import 'library/library_store.dart';
 import 'library/library_screen.dart';
+import 'platform/background.dart';
 import 'platform/device.dart';
 import 'theme.dart';
 
@@ -37,6 +38,7 @@ class _NovelAppState extends State<NovelApp> {
   late final NovelService _service;
   LibraryStore? _store;
   DownloadManager? _downloads;
+  BackgroundDownloads? _background;
 
   /// Loads pages for sites with a human check (Android, iOS and macOS).
   BrowserLoader? _browser;
@@ -85,12 +87,14 @@ class _NovelAppState extends State<NovelApp> {
       // The web client's server fetches covers itself.
       fetchCovers: !kIsWeb,
     );
+    _background = BackgroundDownloads(_downloads!, store);
     // Finish downloads that stopped when the app last closed.
     _downloads!.resumeUnfinished().catchError((Object _) => 0);
   }
 
   @override
   void dispose() {
+    _background?.dispose();
     _downloads?.dispose();
     _browser?.dispose();
     if (widget.service == null) _service.close();
