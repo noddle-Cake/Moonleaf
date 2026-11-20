@@ -114,8 +114,9 @@ extension _LibraryTab on _LibraryScreenState {
                 ? 'Your next story starts here'
                 : 'Nothing here yet',
             message: store.novels.isEmpty
-                ? 'Add a novel from a supported site, or open an EPUB file '
-                      'you already have.'
+                ? 'In your browser, share a story or chapter to Moonleaf, or '
+                      'tap + to paste its link. You can also open an EPUB '
+                      'file you already have.'
                 : query.isNotEmpty
                 ? 'Try another title, author or source.'
                 : 'Long-press a book to move it to this shelf.',

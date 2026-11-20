@@ -1,8 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../data/novel_service.dart';
 import '../data/site_extractors.dart';
+import '../platform/share.dart';
 import '../ui/tokens.dart';
 import 'library_store.dart';
 
@@ -18,10 +20,14 @@ class AddNovelDialog extends StatefulWidget {
     required this.store,
     required this.service,
     this.initialUrl,
+    this.submit = false,
   });
   final LibraryStore store;
   final NovelService service;
   final String? initialUrl;
+
+  /// Add [initialUrl] right away, as for a link shared from a browser.
+  final bool submit;
   @override
   State<AddNovelDialog> createState() => _AddNovelDialogState();
 }
@@ -30,6 +36,38 @@ class _AddNovelDialogState extends State<AddNovelDialog> {
   late final _url = TextEditingController(text: widget.initialUrl ?? '');
   bool _busy = false;
   String? _error;
+
+  /// Whether the clipboard has text to paste.
+  bool _canPaste = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.submit && (widget.initialUrl ?? '').isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _add();
+      });
+    }
+    // Checking doesn't read the clipboard, so Android shows no notice.
+    Clipboard.hasStrings()
+        .then((has) {
+          if (mounted && has) setState(() => _canPaste = true);
+        })
+        .catchError((Object _) {});
+  }
+
+  Future<void> _paste() async {
+    final text = (await Clipboard.getData(Clipboard.kTextPlain))?.text;
+    final link = text == null ? null : SharedLinks.firstLink(text);
+    if (!mounted) return;
+    if (link == null) {
+      setState(() => _error = 'The clipboard doesn’t have a link.');
+      return;
+    }
+    _url.text = link;
+    setState(() => _error = null);
+  }
+
   @override
   void dispose() {
     _url.dispose();
@@ -124,25 +162,33 @@ class _AddNovelDialogState extends State<AddNovelDialog> {
                 TextField(
                   key: const Key('add-novel-url'),
                   controller: _url,
-                  autofocus: true,
+                  autofocus: !widget.submit,
                   enabled: !_busy,
                   keyboardType: TextInputType.url,
                   textInputAction: TextInputAction.go,
                   onSubmitted: (_) {
                     if (!_busy) _add();
                   },
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Novel or chapter URL',
                     hintText: 'https://www.royalroad.com/fiction/…',
+                    suffixIcon: _canPaste && !_busy
+                        ? TextButton(
+                            key: const Key('paste-link'),
+                            onPressed: _paste,
+                            child: const Text('Paste'),
+                          )
+                        : null,
                   ),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   _error ??
-                      'Paste a story page, or a link to any of its chapters, '
-                          'from Royal Road, Scribble Hub, FanFiction.net, AO3, '
-                          'Standard Ebooks or RoliaScan. Moonleaf adds it to '
-                          'your library and downloads the chapters.',
+                      'Copy a story or chapter link in your browser and '
+                          'paste it here, or use Share → Moonleaf in the '
+                          'browser. Works with Royal Road, Scribble Hub, '
+                          'FanFiction.net, AO3, Standard Ebooks and RoliaScan. '
+                          'A chapter link starts the book at that chapter.',
                   style: TextStyles.footnote.copyWith(
                     color: _error == null ? p.secondaryLabel : p.destructive,
                   ),

@@ -156,6 +156,13 @@ extension _SettingsTab on _LibraryScreenState {
                     openSource(context, 'https://github.com/koreader/koreader'),
               ),
               GroupedRow(
+                icon: CupertinoIcons.info_circle,
+                title: 'Welcome Guide',
+                subtitle: 'How to add books and read',
+                chevron: true,
+                onTap: () => showWelcome(context, store),
+              ),
+              GroupedRow(
                 icon: CupertinoIcons.doc_text,
                 title: 'Open-Source Licenses',
                 chevron: true,

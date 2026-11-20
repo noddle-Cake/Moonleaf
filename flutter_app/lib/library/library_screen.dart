@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../browser/browser_loader.dart';
 import '../data/novel_service.dart';
+import '../platform/share.dart';
 import '../screens/convert_screen.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
@@ -12,6 +13,7 @@ import 'library_store.dart';
 import 'novel_cover.dart';
 import 'novel_detail_screen.dart';
 import 'reading.dart';
+import 'welcome_sheet.dart';
 
 part 'tabs/library_tab.dart';
 part 'tabs/updates_tab.dart';
@@ -51,6 +53,7 @@ class LibraryScreen extends StatefulWidget {
     required this.store,
     required this.service,
     this.downloads,
+    this.welcome = false,
   });
   final LibraryStore store;
   final NovelService service;
@@ -58,6 +61,9 @@ class LibraryScreen extends StatefulWidget {
   /// Downloads added novels in the background. Without it, novels are only
   /// saved and books are made from the export tool.
   final DownloadManager? downloads;
+
+  /// Show the welcome guide if it hasn't been seen yet.
+  final bool welcome;
   @override
   State<LibraryScreen> createState() => _LibraryScreenState();
 }
@@ -70,7 +76,29 @@ class _LibraryScreenState extends State<LibraryScreen> {
   LibraryStore get store => widget.store;
 
   @override
+  void initState() {
+    super.initState();
+    SharedLinks.link.addListener(_shared);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      if (widget.welcome) await showWelcomeOnce(context, store);
+      _shared();
+    });
+  }
+
+  /// A link shared from a browser: add it straight away.
+  void _shared() {
+    final url = SharedLinks.link.value;
+    if (url == null || !mounted) return;
+    SharedLinks.link.value = null;
+    // Close anything open over the library first.
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    _add(url, true);
+  }
+
+  @override
   void dispose() {
+    SharedLinks.link.removeListener(_shared);
     _search.dispose();
     _globalSearch.dispose();
     super.dispose();
@@ -95,13 +123,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   /// Opens the Add a Novel sheet, then the novel's page while it downloads.
-  Future<void> _add([String? initial]) async {
+  Future<void> _add([String? initial, bool submit = false]) async {
     final added = await showAppleSheet<AddedNovel>(
       context: context,
       builder: (context, _) => AddNovelDialog(
         store: store,
         service: widget.service,
         initialUrl: initial,
+        submit: submit,
       ),
     );
     if (added == null || !mounted) return;

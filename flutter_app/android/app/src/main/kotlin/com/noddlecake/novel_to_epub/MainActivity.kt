@@ -8,7 +8,19 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    companion object {
+        /** A link shared to Moonleaf that the app hasn't taken yet. */
+        private var pendingShare: String? = null
+        private var current: MainActivity? = null
+
+        fun share(text: String) {
+            pendingShare = text
+            current?.deliverShare()
+        }
+    }
+
     private var background: MethodChannel? = null
+    private var shares: MethodChannel? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -27,6 +39,19 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+        val shareChannel = MethodChannel(messenger, "moonleaf/share")
+        shares = shareChannel
+        shareChannel.setMethodCallHandler { call, result ->
+            when (call.method) {
+                // The app asks for a link shared before it was ready.
+                "take" -> {
+                    result.success(pendingShare)
+                    pendingShare = null
+                }
+                else -> result.notImplemented()
+            }
+        }
+        current = this
         val channel = MethodChannel(messenger, "moonleaf/background")
         background = channel
         DownloadService.onCancel = { runOnUiThread { channel.invokeMethod("cancel", null) } }
@@ -58,7 +83,22 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        deliverShare()
+    }
+
+    /** Sends a shared link to the running app. */
+    fun deliverShare() {
+        val text = pendingShare ?: return
+        val channel = shares ?: return
+        pendingShare = null
+        runOnUiThread { channel.invokeMethod("shared", text) }
+    }
+
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        if (current == this) current = null
+        shares = null
         DownloadService.onCancel = null
         background = null
         // The download can't continue without the app; it resumes on launch.
