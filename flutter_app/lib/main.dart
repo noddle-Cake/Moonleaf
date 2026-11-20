@@ -11,12 +11,14 @@ import 'library/library_screen.dart';
 import 'platform/background.dart';
 import 'platform/device.dart';
 import 'platform/share.dart';
+import 'reader/dictionary.dart';
 import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Device.load();
   await SharedLinks.start();
+  registerDictionaryLicense();
   runApp(const NovelApp(welcome: true));
 }
 

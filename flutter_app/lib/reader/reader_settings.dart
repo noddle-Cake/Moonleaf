@@ -201,6 +201,9 @@ class ReaderSettings extends ChangeNotifier {
   double backZone = .3;
   bool swipe = true, pinch = true, keys = true, fullscreen = true;
 
+  /// Holding a single word shows its definition with the edit menu.
+  bool holdToDefine = true;
+
   /// E-ink screen mode: no animation, blur or system-bar changes, so the
   /// screen doesn't flash. Null means automatic.
   bool? eink;
@@ -270,6 +273,7 @@ class ReaderSettings extends ChangeNotifier {
     backZone = n('backZone', backZone, .15, .5);
     swipe = d['swipe'] as bool? ?? swipe;
     pinch = d['pinch'] as bool? ?? pinch;
+    holdToDefine = d['holdToDefine'] as bool? ?? holdToDefine;
     keys = d['keys'] as bool? ?? keys;
     volumeKeys = d['volumeKeys'] as bool? ?? volumeKeys;
     invertVolume = d['invertVolume'] as bool? ?? invertVolume;
@@ -317,6 +321,7 @@ class ReaderSettings extends ChangeNotifier {
     'backZone': backZone,
     'swipe': swipe,
     'pinch': pinch,
+    'holdToDefine': holdToDefine,
     'keys': keys,
     'volumeKeys': volumeKeys,
     'invertVolume': invertVolume,
