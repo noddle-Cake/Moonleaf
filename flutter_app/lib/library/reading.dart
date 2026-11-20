@@ -9,6 +9,7 @@ import '../reader/book_files.dart';
 import '../reader/epub_document.dart';
 import '../reader/reader_screen.dart';
 import '../reader/reader_settings.dart';
+import 'chapter_store.dart';
 import 'library_store.dart';
 
 bool ereaderAppearance(LibraryStore store) =>
@@ -210,6 +211,7 @@ Future<void> forgetBook(LibraryNovel novel) async {
       await deleteBook(novel.epub!);
     }
     if (novel.coverFile != null) await deleteBook(novel.coverFile!);
+    await deleteData(chapterFolder(novel.url));
     await BookState.forget(novel.url);
   } catch (_) {}
 }
