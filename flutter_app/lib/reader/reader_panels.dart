@@ -1290,7 +1290,7 @@ extension _Panels on _ReaderScreenState {
       if (Dictionary.lookupText(query) case final term?) {
         _selection = null;
         _refresh();
-        await showDefinition(_ctx, term, language: _language);
+        await showDefinition(_ctx, term, language: _language, onSpeak: _say);
         return;
       }
     }

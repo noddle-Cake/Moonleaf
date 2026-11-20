@@ -10,6 +10,8 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../platform/device.dart';
+import '../platform/read_aloud_notification.dart';
+import '../speech/speech.dart';
 import '../theme.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
@@ -17,6 +19,8 @@ import 'book_files.dart';
 import 'definition_view.dart';
 import 'dictionary.dart';
 import 'epub_document.dart';
+import 'read_aloud.dart';
+import 'read_aloud_view.dart';
 import 'reader_settings.dart';
 import 'typesetter.dart';
 
@@ -166,6 +170,11 @@ class _ReaderScreenState extends State<ReaderScreen>
   String? _searchQuery;
   bool _systemUiHidden = false;
 
+  /// Reading the book aloud, while the player is shown.
+  ReadAloud? _aloud;
+  ReadAloudNotification? _aloudNote;
+  Spoken? _followed;
+
   ReaderSettings get s => _settings!;
   ChapterLayout? get _layout => _layouts[_chapter];
   bool get _scrollMode => s.view == ReaderView.scroll;
@@ -247,6 +256,9 @@ class _ReaderScreenState extends State<ReaderScreen>
       _doc = next;
       if (ts != null) _ts = Typesetter(next, s, ts.palette, ts.page);
       _chapter = map(_chapter) ?? _chapter.clamp(0, paths.length - 1);
+      if (_aloud?.current case final at?) {
+        if (map(at.chapter) case final moved?) _aloud!.chapterMoved(moved);
+      }
       _selection = null;
       _searchHit = null;
       if (_returnTo case (final c, final o)?) {
@@ -329,6 +341,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     HardwareKeyboard.instance.removeHandler(_hardwareKey);
+    _stopAloud(rebuild: false);
     _updates?.cancel();
     widget.downloading?.removeListener(_rebuild);
     _settings?.removeListener(_settingsChanged);
@@ -893,6 +906,15 @@ class _ReaderScreenState extends State<ReaderScreen>
   List<_Mark> _marks() {
     final state = _state!;
     return [
+      if (_aloud?.current case final at? when at.chapter == _chapter)
+        (
+          at.start,
+          at.end,
+          palette.eink
+              ? palette.text.withValues(alpha: .18)
+              : const Color(0x4434C759),
+          false,
+        ),
       for (final h in state.highlights)
         if (h.chapter == _chapter)
           (
@@ -1450,7 +1472,20 @@ class _ReaderScreenState extends State<ReaderScreen>
               ),
             ),
           ),
-        if (_returnTo != null && !_menu && _selection == null)
+        if (_aloud case final aloud? when !_menu)
+          Positioned(
+            left: 8,
+            right: 8,
+            bottom: pad.bottom + footerH + 8,
+            child: Center(
+              child: ReadAloudBar(
+                aloud: aloud,
+                onVoice: () => showVoiceSheet(_ctx, language: _language),
+                onClose: _stopAloud,
+              ),
+            ),
+          ),
+        if (_returnTo != null && !_menu && _selection == null && _aloud == null)
           Positioned(
             left: 0,
             right: 0,
@@ -1529,6 +1564,11 @@ class _ReaderScreenState extends State<ReaderScreen>
                           ),
                         ],
                       ),
+                    ),
+                    IconButton(
+                      tooltip: 'Read aloud',
+                      icon: const Icon(CupertinoIcons.headphones),
+                      onPressed: _listen,
                     ),
                     IconButton(
                       tooltip: 'Search in book',
@@ -1768,6 +1808,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                       language: _language,
                       color: foreground,
                       onOpen: () => _lookUp(text, 'dictionary'),
+                      onSpeak: _say,
                     ),
                   ),
                   Container(width: width, height: .5, color: rule),
@@ -1800,6 +1841,86 @@ class _ReaderScreenState extends State<ReaderScreen>
         ),
       ),
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Read Aloud.
+
+  /// Starts reading aloud from the top of the page.
+  void _listen() {
+    _setMenu(false);
+    if (_aloud != null) {
+      _aloud!.play();
+      return;
+    }
+    final aloud = ReadAloud(
+      chapters: () => [for (final c in doc.chapters) c.plainText],
+      engine: Speech.instance.engine,
+      onError: (_) => _toast(
+        'Read Aloud stopped: the voice isn’t available. Try another voice.',
+      ),
+    );
+    aloud.addListener(_aloudChanged);
+    _aloudNote = ReadAloudNotification(
+      onButton: (button) => switch (button) {
+        'play' => _aloud?.play(),
+        'pause' => _aloud?.pause(),
+        'next' => _aloud?.skip(1),
+        'stop' => _stopAloud(),
+        _ => null,
+      },
+    );
+    setState(() => _aloud = aloud);
+    final info = _scrollMode ? null : _pageInfo;
+    aloud.start(_chapter, info?.start ?? _offset);
+  }
+
+  /// Follows what's being read: highlights it and turns to its page.
+  void _aloudChanged() {
+    final aloud = _aloud;
+    if (aloud == null || !mounted) return;
+    final at = aloud.current;
+    _aloudNote?.show(
+      title: doc.title,
+      text: at == null ? '' : doc.chapterTitle(at.chapter, at.start),
+      playing: aloud.playing,
+    );
+    if (at != null && at != _followed) {
+      _followed = at;
+      final info = _scrollMode ? null : _pageInfo;
+      final shown =
+          at.chapter == _chapter &&
+          (_scrollMode ||
+              (info != null && at.start >= info.start && at.start < info.end));
+      // Not while text is selected, so the menu stays put.
+      if (!shown && _selection == null) {
+        _goTo(at.chapter, at.start, remember: false);
+        return;
+      }
+    }
+    setState(() {});
+  }
+
+  void _stopAloud({bool rebuild = true}) {
+    final aloud = _aloud;
+    if (aloud == null) return;
+    aloud.removeListener(_aloudChanged);
+    aloud.dispose();
+    _aloudNote?.dispose();
+    _aloudNote = null;
+    _followed = null;
+    _aloud = null;
+    if (rebuild && mounted) setState(() {});
+  }
+
+  /// Reads a word and its definition aloud, pausing the book.
+  Future<void> _say(String text) async {
+    await _aloud?.pause();
+    try {
+      await Speech.instance.say(text);
+    } catch (_) {
+      if (mounted) _toast('The voice isn’t available. Try another voice.');
+    }
   }
 
   /// The book's language code, for the dictionary.
