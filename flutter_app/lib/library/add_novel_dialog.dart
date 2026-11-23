@@ -187,7 +187,7 @@ class _AddNovelDialogState extends State<AddNovelDialog> {
                       'Copy a story or chapter link in your browser and '
                           'paste it here, or use Share → Moonleaf in the '
                           'browser. Works with Royal Road, Scribble Hub, '
-                          'FanFiction.net, AO3, Standard Ebooks and RoliaScan. '
+                          'FanFiction.net, AO3, Standard Ebooks, RoliaScan and Indra Translations. '
                           'A chapter link starts the book at that chapter.',
                   style: TextStyles.footnote.copyWith(
                     color: _error == null ? p.secondaryLabel : p.destructive,

@@ -28,6 +28,8 @@ abstract class SiteExtractor {
   /// of collecting chapters.
   bool get officialEpub => false;
 
+  Map<String, String> get requestHeaders => const {};
+
   /// The address to request for a page (for example with consent flags).
   Uri fetchUrl(Uri url) => url;
 
@@ -86,6 +88,8 @@ SiteExtractor extractorFor(Uri url) {
   switch (url.host.toLowerCase().replaceFirst(RegExp(r'^(www|m)\.'), '')) {
     case 'roliascan.com':
       return const RoliaExtractor();
+    case 'indratranslations.com':
+      return const IndraExtractor();
     case 'royalroad.com':
       return const RoyalRoadExtractor();
     case 'scribblehub.com':
@@ -99,7 +103,7 @@ SiteExtractor extractorFor(Uri url) {
     default:
       throw const ApiException(
         'This site is not supported yet. Try Royal Road, Scribble Hub, '
-        'FanFiction.net, AO3, Standard Ebooks or RoliaScan.',
+        'FanFiction.net, AO3, Standard Ebooks, RoliaScan or Indra Translations.',
       );
   }
 }
@@ -177,6 +181,121 @@ NovelChapter parseChapter(
     url,
     resolveLink(url, next?.attributes['href']),
   );
+}
+
+class IndraExtractor extends SiteExtractor {
+  const IndraExtractor();
+  @override
+  String get name => 'Indra Translations';
+
+  // The reader returns 404 for the default HTTP client user agent.
+  @override
+  Map<String, String> get requestHeaders => const {'User-Agent': 'Mozilla/5.0'};
+
+  @override
+  bool isChapter(Uri url) {
+    final parts = _segments(url);
+    return parts.length == 2 && parts[1].contains('-chapter-');
+  }
+
+  @override
+  Uri? novelFromPath(Uri chapter) => isChapter(chapter)
+      ? _page(chapter, '/${_segments(chapter).first}/')
+      : null;
+
+  @override
+  Uri? novelFromChapter(String source, Uri chapter) => novelFromPath(chapter);
+
+  @override
+  BookMetadata book(String source, Uri url) {
+    final doc = html.parse(source);
+    final first = resolveLink(
+      url,
+      doc
+          .querySelectorAll('.td-story-actions a[href]')
+          .where((a) => a.querySelector('.fa-book-open') != null)
+          .firstOrNull
+          ?.attributes['href'],
+    );
+    final title = _text(doc.querySelector('h1.story-main-title'));
+    if (title.isEmpty ||
+        first == null ||
+        !isChapter(first) ||
+        !sameNovel(first, first) ||
+        _segments(url).isEmpty ||
+        _segments(url).first != _segments(first).first) {
+      throw const ApiException(
+        'Indra Translations book title or first chapter link is missing.',
+      );
+    }
+    final synopsis = doc.querySelector('#story-synopsis');
+    final paragraphs = synopsis?.querySelectorAll('p') ?? <Element>[];
+    return BookMetadata(
+      title: title,
+      author: _text(doc.querySelector('.story-meta-list a[href*="/tac-gia/"]')),
+      firstChapter: first.toString(),
+      coverUrl: resolveLink(
+        url,
+        doc.querySelector('meta[property="og:image"]')?.attributes['content'],
+      )?.toString(),
+      description: paragraphs.isEmpty
+          ? _text(synopsis)
+          : paragraphs.map(_text).join(' '),
+    );
+  }
+
+  @override
+  NovelChapter chapter(String source, Uri url, int number) {
+    final doc = html.parse(source);
+    if (doc.querySelector('#vip-gate-area, .gd-vip-gate') != null) {
+      throw const ApiException(
+        'This Indra Translations chapter is premium or requires login; '
+        'only publicly readable chapters can be downloaded.',
+      );
+    }
+    final content = doc.querySelector('#chapter-content-text');
+    if (content == null) {
+      throw const ApiException('Indra Translations chapter text is missing.');
+    }
+    for (final e in content.querySelectorAll(
+      'script,style,iframe,form,.td-ad-container,.adsbygoogle,'
+      '.td-s-noise,.td-s-para-noise,.td-hidden-watermark,'
+      '.td-copy-honeypot,.td-canary-trap,[aria-hidden="true"],[hidden]',
+    )) {
+      e.remove();
+    }
+    // Match the order shown by the site's flex layout, not its shuffled DOM.
+    for (final flow in content.querySelectorAll('.td-reading-flow')) {
+      final children = flow.children.toList();
+      double order(Element e) =>
+          double.tryParse(e.attributes['data-order'] ?? '') ?? double.nan;
+      if (children.any((e) => !order(e).isFinite)) {
+        throw const ApiException(
+          'Indra Translations paragraph order is missing or invalid.',
+        );
+      }
+      children.sort((a, b) => order(a).compareTo(order(b)));
+      for (final child in children) {
+        child.remove();
+        flow.append(child);
+      }
+    }
+    final next = doc.querySelector('a.btn-next-chap[href]:not(.disabled)');
+    final chapter = parseChapter(
+      doc,
+      url,
+      number,
+      '#chapter-content-text',
+      next,
+      title: _text(doc.querySelector('#chapter-heading, h1.chapter-title')),
+    );
+    if (chapter.next != null && !sameNovel(url, chapter.next!)) {
+      throw const ApiException(
+        'Indra Translations next link leaves this novel.',
+      );
+    }
+    return chapter;
+  }
 }
 
 class RoliaExtractor extends SiteExtractor {
@@ -719,6 +838,12 @@ bool sameNovel(Uri first, Uri next) {
   final a = first.pathSegments.where((s) => s.isNotEmpty).toList();
   final b = next.pathSegments.where((s) => s.isNotEmpty).toList();
   switch (host(first).replaceFirst(RegExp(r'^m\.'), '')) {
+    case 'indratranslations.com':
+      return a.length == 2 &&
+          b.length == 2 &&
+          a[0] == b[0] &&
+          a[1].contains('-chapter-') &&
+          b[1].contains('-chapter-');
     case 'scribblehub.com':
       String? story(List<String> s) =>
           s.length >= 3 && s[0] == 'read' ? s[1].split('-').first : null;

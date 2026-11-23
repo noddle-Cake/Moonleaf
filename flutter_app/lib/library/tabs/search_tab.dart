@@ -19,6 +19,11 @@ const _sources = [
     'https://standardebooks.org',
   ),
   ('RoliaScan', 'Translated light novels', 'https://roliascan.com'),
+  (
+    'Indra Translations',
+    'Translated web novels',
+    'https://indratranslations.com',
+  ),
 ];
 
 extension _SearchTab on _LibraryScreenState {
