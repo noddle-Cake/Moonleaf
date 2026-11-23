@@ -3,10 +3,10 @@ name: Android APK
 on:
   pull_request:
     branches: [master]
-    paths: ['flutter_app/**', '.github/workflows/android-apk.yml']
+    paths: ['flutter_app/**', 'tools/verify_android_release.py', 'tests/test_android_release.py', '.github/workflows/android-apk.yml']
   push:
     branches: [master]
-    paths: ['flutter_app/**', '.github/workflows/android-apk.yml']
+    paths: ['flutter_app/**', 'tools/verify_android_release.py', 'tests/test_android_release.py', '.github/workflows/android-apk.yml']
   workflow_dispatch:
 
 permissions:
@@ -37,12 +37,45 @@ jobs:
       - run: flutter pub get --enforce-lockfile
       - run: flutter analyze
       - run: flutter test
-      - name: Build downloadable debug APK
+      - name: Test release verification
+        working-directory: .
+        run: python3 -m unittest discover -s tests -p test_android_release.py
+      - name: Build pull-request test APK
+        if: github.event_name == 'pull_request'
         run: flutter build apk --debug --build-number "$GITHUB_RUN_NUMBER"
+      - name: Restore release signing key
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$KEYSTORE_BASE64" || { echo 'Missing Android release keystore secret'; exit 1; }
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/moonleaf-release.jks"
+      - name: Build signed release APK
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+        env:
+          MOONLEAF_KEYSTORE_PATH: ${{ runner.temp }}/moonleaf-release.jks
+          MOONLEAF_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          MOONLEAF_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          MOONLEAF_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: flutter build apk --release --build-number "$GITHUB_RUN_NUMBER"
+      - name: Verify release signature and package
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+        env:
+          EXPECTED_CERT_SHA256: ${{ vars.ANDROID_SIGNING_CERT_SHA256 }}
+        run: |
+          python3 ../tools/verify_android_release.py build/app/outputs/flutter-apk/app-release.apk "$GITHUB_RUN_NUMBER"
+      - name: Remove release signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/moonleaf-release.jks"
       - name: Prepare download and checksum
         run: |
           mkdir -p dist
-          cp build/app/outputs/flutter-apk/app-debug.apk dist/chapter-and-verse.apk
+          if [[ "$GITHUB_EVENT_NAME" == 'pull_request' ]]; then
+            cp build/app/outputs/flutter-apk/app-debug.apk dist/chapter-and-verse.apk
+          else
+            cp build/app/outputs/flutter-apk/app-release.apk dist/chapter-and-verse.apk
+          fi
           cd dist
           sha256sum chapter-and-verse.apk > chapter-and-verse.apk.sha256
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -107,14 +140,16 @@ jobs:
           cat > release-notes.md <<EOF
           ## Download
           Download **chapter-and-verse.apk** below and install it on your Android device.
-          This is a universal **debug APK** for direct testing, not an app-store release.
-          Build machines use different debug keys, so uninstall a previous build if Android rejects an update.
+          This universal **release APK** uses Moonleaf's permanent signing key.
+          Install it over an earlier signed release to update without removing your library.
+          Builds 48 and earlier used temporary debug keys and may need one final reinstall.
+          Save your EPUBs before removing an old debug build. See the website's install guide.
 
           ## Runs on your phone
           No server, Python installation, or account is required. Paste a supported novel URL,
           extract chapters on your phone, and save the EPUB using the native file dialog.
-          Internet is needed to fetch chapters. Keep the app open during extraction and save
-          your EPUB before closing it. Saved books can be read offline in an EPUB reader.
+          Internet is needed to fetch chapters. Downloads continue in the background,
+          and saved books can be read offline in Moonleaf's built-in reader.
           See the [setup instructions](https://github.com/$GH_REPO/blob/$GITHUB_SHA/README.md).
 
           Built from commit $GITHUB_SHA. The SHA-256 checksum is attached.
@@ -123,6 +158,6 @@ jobs:
             gh release upload "$tag" dist/* --clobber
           else
             gh release create "$tag" dist/* --target "$GITHUB_SHA" \
-              --title "Moonleaf — Android debug build $GITHUB_RUN_NUMBER" \
+              --title "Moonleaf — Android build $GITHUB_RUN_NUMBER" \
               --notes-file release-notes.md --latest
           fi

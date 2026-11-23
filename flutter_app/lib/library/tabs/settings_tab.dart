@@ -132,6 +132,16 @@ extension _SettingsTab on _LibraryScreenState {
                 'tracking.',
             children: [
               GroupedRow(
+                icon: CupertinoIcons.arrow_down_circle,
+                title: 'App Updates',
+                subtitle: 'Download the latest Android version',
+                chevron: true,
+                onTap: () => openSource(
+                  context,
+                  'https://moonleaf.cjservin.com/download/',
+                ),
+              ),
+              GroupedRow(
                 icon: CupertinoIcons.heart,
                 title: 'Inspired by Mihon',
                 subtitle: 'Library and novel pages',

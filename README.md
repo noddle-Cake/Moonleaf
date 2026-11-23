@@ -41,12 +41,19 @@ without accessible novel text raise an error.
 Install the APK on your Android phone and open it. **No server or Python
 installation is needed.** The app fetches novels and creates EPUBs on your
 phone. Internet is needed to fetch chapters; saved EPUBs can be read offline.
-Android may ask you to allow installation from your browser. These are debug
-builds; uninstall the previous build if Android rejects an update because
-build machines use different debug signing keys.
+Android may ask you to allow installation from your browser. Published APKs
+use a permanent signing key: download the latest version from **Settings →
+App Updates** or the website and install it over an earlier signed release.
+Android shows **Update**, and your library, progress, highlights and settings
+stay in place. Updates are installed manually; there is no automatic updater.
+
+Builds 48 and earlier used temporary debug keys. Moving from one of those to
+the first signed release requires one final reinstall. Save EPUB files outside
+the app before uninstalling; uninstalling removes the local library, reading
+progress, highlights and settings.
 
 Merges affecting the app automatically build and publish a universal
-debug APK. The download link always points to the latest release, and a
+signed release APK. The download link always points to the latest release, and a
 SHA-256 checksum accompanies each APK. The **Android APK** workflow can also
 be run manually from GitHub Actions on `master`.
 
@@ -149,7 +156,7 @@ flutter build linux --release
 
 iOS installation on physical devices requires your own Apple signing setup.
 Configure application identifiers and release signing before app-store
-publication. The downloadable Android package is a development/debug build.
+publication. The downloadable Android package is a signed release build.
 
 ## Optional web client
 
@@ -250,10 +257,22 @@ to `master` run the same checks and publish the APK and its SHA-256 checksum to
 GitHub Releases. Workflow actions and the Flutter SDK are pinned. Pull-request
 APKs are also available as workflow artifacts for 14 days.
 
-These are development/debug APKs, not app-store releases. No custom signing
-secrets are required. Debug signing keys differ across runners, so updating an
-installed APK may require uninstalling its previous version. Production
-signing with a stable private key can be configured separately.
+Public downloads are release APKs signed with a permanent private key. The
+workflow restores the key only for trusted `master` builds, removes its
+temporary copy after signing, and verifies the certificate, application ID,
+version code and non-debuggable build before publishing. PR builds remain
+debug APKs and receive no signing credentials; they are testing artifacts.
+
+The repository's Actions secrets are `ANDROID_KEYSTORE_BASE64`,
+`ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD`.
+`ANDROID_SIGNING_CERT_SHA256` is a repository variable pinning the public
+certificate fingerprint. Back up the private keystore and its password;
+replacing or losing it breaks updates for existing installations.
+
+For a local signed Android release, set `MOONLEAF_KEYSTORE_PATH`,
+`MOONLEAF_KEYSTORE_PASSWORD`, `MOONLEAF_KEY_ALIAS` and `MOONLEAF_KEY_PASSWORD`
+in the build environment, then run `flutter build apk --release`. Release
+signing fails when credentials are missing; there is no debug-key fallback.
 
 Builds use the workflow run number as Android's version code. Native builds
 contain the Dart extractors and EPUB writer; no backend address is configured.

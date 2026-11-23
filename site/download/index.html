@@ -42,7 +42,7 @@
         "totalTime": "PT3M",
         "tool": [{ "@type": "HowToTool", "name": "An Android phone running Android 7.0 or later" }],
         "step": [
-          { "@type": "HowToStep", "position": 1, "name": "Download the APK", "text": "On your phone, open moonleaf.cjservin.com/download and tap Download the APK. The file is about 240 MB.", "url": "https://moonleaf.cjservin.com/download/#step-1" },
+          { "@type": "HowToStep", "position": 1, "name": "Download the APK", "text": "On your phone, open moonleaf.cjservin.com/download and tap Download the APK. The file is about 145 MB.", "url": "https://moonleaf.cjservin.com/download/#step-1" },
           { "@type": "HowToStep", "position": 2, "name": "Open the file", "text": "When the download finishes, open chapter-and-verse.apk from the notification or your Downloads folder.", "url": "https://moonleaf.cjservin.com/download/#step-2" },
           { "@type": "HowToStep", "position": 3, "name": "Allow the install", "text": "If Android says your browser is not allowed to install unknown apps, tap Settings, turn on Allow from this source, then go back.", "url": "https://moonleaf.cjservin.com/download/#step-3" },
           { "@type": "HowToStep", "position": 4, "name": "Install and open", "text": "Tap Install, then Open. Tap + in the Library tab and paste a story or chapter link, or open an EPUB file you already have.", "url": "https://moonleaf.cjservin.com/download/#step-4" }
@@ -55,7 +55,7 @@
         "operatingSystem": "Android 7.0 or later",
         "applicationCategory": "EntertainmentApplication",
         "downloadUrl": "https://github.com/noddle-Cake/Moonleaf/releases/latest/download/chapter-and-verse.apk",
-        "fileSize": "240 MB",
+        "fileSize": "145 MB",
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
       }
     ]
@@ -81,7 +81,7 @@
       <div class="wrap">
         <p class="crumbs"><a href="/">Moonleaf</a> › Download</p>
         <h1>Download Moonleaf for Android</h1>
-        <p>Free, with no account and no ads. Moonleaf needs Android 7.0 or later and takes about 240 MB to download.</p>
+        <p>Free, with no account and no ads. Moonleaf needs Android 7.0 or later and takes about 145 MB to download.</p>
       </div>
     </section>
 
@@ -90,7 +90,7 @@
         <img src="/assets/img/icon-96.png" alt="Moonleaf app icon" width="72" height="72">
         <div>
           <h2 style="margin:0 0 4px;font-size:1.4rem">Moonleaf for Android</h2>
-          <p>Latest build · APK · about 240 MB · <a href="/whats-new/">What’s new</a></p>
+          <p>Latest build · APK · about 145 MB · <a href="/whats-new/">What’s new</a></p>
         </div>
         <a class="btn btn-ink" href="https://github.com/noddle-Cake/Moonleaf/releases/latest/download/chapter-and-verse.apk" data-download>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 20h14v-2H5v2zm7-18-1.4 1.4L11 15.2l-4.6-4.6L5 12l7 7 7-7-1.4-1.4-4.6 4.6V2z"/></svg>
@@ -112,7 +112,10 @@
       </div>
 
       <h2>Updating to a new version</h2>
-      <p>Download the latest APK from this page and install it over the old one. <a href="/whats-new/">See what’s new in the latest version</a>. If Android says the app conflicts with an existing package, the new build was signed by a different build machine. Uninstall Moonleaf first, then install the new APK. Uninstalling removes your library, so save any EPUBs you want to keep before you do.</p>
+      <p>In Moonleaf, open <strong>Settings → App Updates</strong>, or download the latest APK from this page. Open it and choose <strong>Update</strong> in Android. Signed releases use the same permanent signing key, so they install over each other and keep your library, reading positions, highlights and settings. Updates are installed manually; Moonleaf does not install them automatically. <a href="/whats-new/">See what’s new</a>.</p>
+      <div class="note" id="old-debug-builds">
+        <p style="margin:0"><strong>Moving from build 48 or earlier?</strong> Those older debug builds used temporary signing keys. One final reinstall is required to move to the signed releases. Before uninstalling, save any EPUBs you want to keep outside the app using the book’s <strong>Save EPUB file</strong> menu. Uninstalling removes the local library, reading progress, highlights and settings; saved EPUB files do not preserve those. After this transition, future signed releases update in place.</p>
+      </div>
 
       <h2>Verify the download (optional)</h2>
       <p>Each release on GitHub includes a <code>chapter-and-verse.apk.sha256</code> file. Compare it with the checksum of your download, for example with <code>sha256sum chapter-and-verse.apk</code> on a computer.</p>
@@ -122,7 +125,7 @@
 
       <h2>Troubleshooting</h2>
       <ul>
-        <li><strong>“App not installed”:</strong> make sure you have enough free space (about 600 MB) and that an older build signed differently isn’t still installed.</li>
+        <li><strong>“App not installed”:</strong> make sure you have enough free space (about 600 MB) and a newer APK. For a package conflict with build 48 or earlier, follow the <a href="#old-debug-builds">one-time migration instructions</a>. Do not uninstall a signed release as a routine update step.</li>
         <li><strong>A novel won’t download:</strong> check that the link is a story or chapter on a supported site (Royal Road, Scribble Hub, FanFiction.net, AO3, Standard Ebooks, RoliaScan or Indra Translations), that it’s text, not image-only manga, and complete the site’s human check if Moonleaf shows one.</li>
         <li><strong>Found a bug?</strong> <a href="https://github.com/noddle-Cake/Moonleaf/issues">Report it on GitHub</a>.</li>
       </ul>
