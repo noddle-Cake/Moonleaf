@@ -42,10 +42,15 @@ Install the APK on your Android phone and open it. **No server or Python
 installation is needed.** The app fetches novels and creates EPUBs on your
 phone. Internet is needed to fetch chapters; saved EPUBs can be read offline.
 Android may ask you to allow installation from your browser. Published APKs
-use a permanent signing key: download the latest version from **Settings →
-App Updates** or the website and install it over an earlier signed release.
+use a permanent signing key. **Settings → App Updates** checks your installed
+version against the latest verified release, shows release notes, and downloads
+the APK with progress and cancellation. Tap **Install Update** and confirm in
+Android. You can also download the APK from the website.
 Android shows **Update**, and your library, progress, highlights and settings
-stay in place. Updates are installed manually; there is no automatic updater.
+stay in place. Checks run only when you open App Updates or tap Check Again;
+installation always needs your confirmation. Android may first ask you to allow
+Moonleaf to install apps. Return to App Updates and tap Install Update after
+granting that permission. A failed download can be retried without uninstalling.
 
 Builds 48 and earlier used temporary debug keys. Moving from one of those to
 the first signed release requires one final reinstall. Save EPUB files outside
@@ -276,3 +281,34 @@ signing fails when credentials are missing; there is no debug-key fallback.
 
 Builds use the workflow run number as Android's version code. Native builds
 contain the Dart extractors and EPUB writer; no backend address is configured.
+
+## APK mirror and update metadata
+
+`tools/moonleaf_publish.py` owns both website deployment and APK mirroring.
+Both commands take `/run/lock/moonleaf-publish.lock`, outside the served tree
+and the executable being updated. Deployments preserve downloaded APKs,
+partial downloads and the last verified `app-update.json`.
+
+The publisher fetches a stable GitHub release, checks its checksum, signing
+certificate, package ID, non-debuggable flag and build number, then atomically
+renames the APK into place. Only then does it atomically publish the app-update
+manifest and rewrite website download links. A stale release response cannot
+roll the manifest back, and a published version cannot change its APK bytes.
+No private signing credentials are used by the publisher. Its public identity
+pin is `flutter_app/assets/android-update.json`, also bundled with the app.
+
+On the existing host, deploy with `sudo python3 tools/deploy_moonleaf.py` from
+the checked-out repository. It updates the source, migrates the timer to the
+tracked publisher, and restarts the timer even if deployment fails. The old
+`32-moonleaf.sh` entry point delegates to this command. An optional
+`--expected-build N` prevents publishing before GitHub exposes a new release.
+The timer continues to check every ten minutes. Android SDK tools must be
+available at `/home/chris/Android/Sdk` (or pass `--sdk` to the publisher).
+
+Update `.github/android-release-notes.md` when publishing app features. Those
+notes become both the GitHub release notes and the in-app release summary.
+The app downloads to its own cache, checks size and SHA-256, and asks Android
+to recheck the package, version and signing identity before opening its normal
+installation UI. Unsupported platforms and differently signed installations
+get instructions instead of an install action. The updater never uninstalls
+Moonleaf or deletes its library data.

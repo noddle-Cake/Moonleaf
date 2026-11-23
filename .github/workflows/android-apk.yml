@@ -3,10 +3,10 @@ name: Android APK
 on:
   pull_request:
     branches: [master]
-    paths: ['flutter_app/**', 'tools/verify_android_release.py', 'tests/test_android_release.py', '.github/workflows/android-apk.yml']
+    paths: ['flutter_app/**', 'tools/verify_android_release.py', 'tools/moonleaf_publish.py', 'tools/deploy_moonleaf.py', '.github/android-release-notes.md', 'tests/test_android_release.py', 'tests/test_moonleaf_publish.py', '.github/workflows/android-apk.yml']
   push:
     branches: [master]
-    paths: ['flutter_app/**', 'tools/verify_android_release.py', 'tests/test_android_release.py', '.github/workflows/android-apk.yml']
+    paths: ['flutter_app/**', 'tools/verify_android_release.py', 'tools/moonleaf_publish.py', 'tools/deploy_moonleaf.py', '.github/android-release-notes.md', 'tests/test_android_release.py', 'tests/test_moonleaf_publish.py', '.github/workflows/android-apk.yml']
   workflow_dispatch:
 
 permissions:
@@ -40,6 +40,9 @@ jobs:
       - name: Test release verification
         working-directory: .
         run: python3 -m unittest discover -s tests -p test_android_release.py
+      - name: Test atomic APK publishing and deployment
+        working-directory: .
+        run: python3 -m unittest discover -s tests -p test_moonleaf_publish.py
       - name: Build pull-request test APK
         if: github.event_name == 'pull_request'
         run: flutter build apk --debug --build-number "$GITHUB_RUN_NUMBER"
@@ -127,6 +130,7 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: android-apk
@@ -137,7 +141,9 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           tag="android-build-$GITHUB_RUN_NUMBER"
-          cat > release-notes.md <<EOF
+          cp .github/android-release-notes.md release-notes.md
+          cat >> release-notes.md <<EOF
+
           ## Download
           Download **chapter-and-verse.apk** below and install it on your Android device.
           This universal **release APK** uses Moonleaf's permanent signing key.

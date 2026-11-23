@@ -21,10 +21,12 @@ class MainActivity : FlutterActivity() {
 
     private var background: MethodChannel? = null
     private var shares: MethodChannel? = null
+    private var updates: AppUpdateBridge? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
+        updates = AppUpdateBridge(this, messenger)
         MethodChannel(messenger, "moonleaf/device")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -126,6 +128,8 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        updates?.close()
+        updates = null
         if (current == this) current = null
         shares = null
         DownloadService.onCancel = null
