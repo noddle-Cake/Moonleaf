@@ -10,6 +10,11 @@ Convert supported web novels to EPUB while preserving chapter formatting.
 | AO3 (Archive of Our Own) | Downloads AO3's own EPUB of the work |
 | Standard Ebooks | Downloads the book's compatible EPUB |
 | RoliaScan | Follows the chapters |
+| Indra Translations | Follows publicly readable chapters |
+
+Indra Translations accepts novel and chapter links. Paragraphs retain their
+displayed order, and hidden filler is excluded. Premium or login-only chapters
+stop the download with an access message.
 
 Scribble Hub and FanFiction.net ask every visitor to pass a human check
 (Cloudflare), so plain requests are blocked. The Android, iOS and macOS apps

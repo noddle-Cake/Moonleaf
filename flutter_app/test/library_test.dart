@@ -86,6 +86,7 @@ void main() {
     // The empty library points to Search, which lists the sources.
     await tester.tap(find.text('Browse Sources'));
     await tester.pumpAndSettle();
+    expect(find.text('Indra Translations'), findsOneWidget);
     await tester.tap(find.text('Add a Novel by Link'));
     await tester.pumpAndSettle();
     await tester.enterText(

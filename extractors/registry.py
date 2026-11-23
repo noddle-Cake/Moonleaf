@@ -4,9 +4,10 @@ from .base import BaseExtractor
 from .official import Ao3Extractor, StandardEbooksExtractor
 from .royalRoad import RoyalRoadExtractor
 from .roliascan import RoliaScanExtractor
+from .indra import IndraExtractor
 
 EXTRACTORS: list[type[BaseExtractor]] = [RoyalRoadExtractor, RoliaScanExtractor, Ao3Extractor,
-                                         StandardEbooksExtractor]
+                                         StandardEbooksExtractor, IndraExtractor]
 
 # These sites ask every visitor to pass a human check, which only the Moonleaf
 # app's built-in browser can show; a server can't download them.

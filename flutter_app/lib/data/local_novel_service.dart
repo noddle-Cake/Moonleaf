@@ -74,7 +74,7 @@ class LocalNovelService implements NovelService, ChapterSource {
     }
     try {
       final response = await _client
-          .get(uri)
+          .get(uri, headers: parser.requestHeaders)
           .timeout(const Duration(seconds: 30));
       if (response.statusCode != 200) {
         throw ApiException(
