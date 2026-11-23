@@ -15,9 +15,14 @@ def verify(apk, version):
                          key=lambda p: tuple(int(n) for n in re.findall(r"\d+", p.name)))
     signer = next(p / "apksigner" for p in reversed(build_tools) if (p / "apksigner").exists())
     certs = subprocess.check_output([str(signer), "verify", "--print-certs", apk], text=True)
-    digests = re.findall(r"Signer #\d+ certificate SHA-256 digest: ([0-9a-fA-F]+)", certs)
-    if [d.lower() for d in digests] != [expected]:
-        raise ValueError("APK signer does not match Moonleaf's permanent certificate")
+    # SDK 37 prints "V2 Signer:" (and can list multiple schemes); older
+    # versions use "Signer #1" or SDK ranges. Source stamps aren't app signers.
+    digests = {d.lower() for d in re.findall(
+        r"^(?:Signer\b|V[0-9.]+ Signer\b)[^\r\n]*? certificate SHA-256 digest: "
+        r"([0-9a-fA-F]{64})[ \t]*$", certs, re.M)}
+    if digests != {expected}:
+        raise ValueError("APK signer does not match Moonleaf's permanent certificate; "
+                         f"expected {expected}, found {sorted(digests)}")
     manifest = subprocess.check_output([str(signer.parent / "aapt"), "dump", "badging", apk], text=True)
     package = re.search(r"package: name='([^']+)' versionCode='(\d+)'", manifest)
     if not package or package.groups() != ("com.noddlecake.novel_to_epub", str(int(version))):
