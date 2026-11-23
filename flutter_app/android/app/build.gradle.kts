@@ -29,11 +29,22 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("moonleafRelease") {
+            val path = System.getenv("MOONLEAF_KEYSTORE_PATH")
+            if (!path.isNullOrBlank()) {
+                storeFile = file(path)
+                storePassword = System.getenv("MOONLEAF_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("MOONLEAF_KEY_ALIAS")
+                keyPassword = System.getenv("MOONLEAF_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Missing credentials fail signing; never use a temporary debug key.
+            signingConfig = signingConfigs.getByName("moonleafRelease")
         }
     }
 }
