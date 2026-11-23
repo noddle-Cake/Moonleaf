@@ -7,6 +7,7 @@ import '../platform/share.dart';
 import '../screens/convert_screen.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
+import '../updates/app_updates_screen.dart';
 import 'add_novel_dialog.dart';
 import 'downloads.dart';
 import 'library_store.dart';

@@ -134,11 +134,12 @@ extension _SettingsTab on _LibraryScreenState {
               GroupedRow(
                 icon: CupertinoIcons.arrow_down_circle,
                 title: 'App Updates',
-                subtitle: 'Download the latest Android version',
+                subtitle: 'Check for a newer version of Moonleaf',
                 chevron: true,
-                onTap: () => openSource(
-                  context,
-                  'https://moonleaf.cjservin.com/download/',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const AppUpdatesScreen(),
+                  ),
                 ),
               ),
               GroupedRow(

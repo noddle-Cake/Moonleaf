@@ -30,6 +30,8 @@ def verify(apk, version):
     if "application-debuggable" in manifest:
         raise ValueError("Published APK must be a release build")
     print(f"Release signature, application ID and version code {version} verified.")
+    name = re.search(r"versionName='([^']+)'", manifest)
+    return {"version_name": name.group(1) if name else str(version)}
 
 
 if __name__ == "__main__":
